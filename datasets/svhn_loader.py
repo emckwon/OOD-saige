@@ -92,7 +92,7 @@ class SVHN(data.Dataset):
 
     def __len__(self):
         if self.split == "test":
-            return len(self.data)
+            return len(self.s)
         else:
             return len(self.data)
 
