@@ -11,7 +11,7 @@ cfg['ngpu'] = 1
 
 # Log config
 cfg['log_step'] = 100  # Step term of log
-cfg['exp_root'] = '/home/sr2/Hyeokjun/results/'
+cfg['exp_root'] = '/home/sr2/Hyeokjun/OOD-saige/results/'
 cfg['exp_dir'] = 'wrn_severstal_classifier'
 cfg['load_ckpt'] = '' # ckpt file(.pyth) name
 cfg['ckpt_epoch'] = 10  # Epoch term of saving checkpoint file.
@@ -32,7 +32,7 @@ cfg['in_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFilp(),
 cfg['in_dataset']['valid_transform'] = trn.Compose([trn.CenterCrop(256),
                                          trn.ToTensor()])
 cfg['in_dataset']['data_root'] = '/home/sr2/HDD2/Openset/'
-cfg['in_dataset']['split_root'] = '/home/sr2/Hyeokjun/datasets/data_split/'
+cfg['in_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_split/'
 
 # Out-Dataset config
 cfg['out_dataset'] = dict()
@@ -44,7 +44,7 @@ cfg['out_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFilp(),
 cfg['out_dataset']['valid_transfrom'] = trn.Compose([trn.CenterCrop(256),
                                           trn.ToTensor()])
 cfg['out_dataset']['data_root'] = '/home/sr2/HDD2/Openset/'
-cfg['out_dataset']['split_root'] = '/home/sr2/Hyeokjun/datasets/data_split/'
+cfg['out_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_split/'
 
 # Model config
 cfg['model'] = dict()
