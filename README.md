@@ -7,10 +7,10 @@ Out-of-distribution detection task experiment in saigereasearch.
 2. Sub directory data_split has split(train/valid/test) list of each data. Structure is as below.
 <pre>
 <code>
-    root/datasets/{DATASET_NAME}/{split}.txt
-    {label1}/{image_file_name1.png}
-    {label2}/{image_file_name2.png}
-    ...
+    (root/datasets/{DATASET_NAME}/{split}.txt)
+        {label1}/{image_file_name1.png}
+        {label2}/{image_file_name2.png}
+        ...
 </code>
 </pre>
 3. saige_dataset.py has dataset class for saigeresearch's datasets.
@@ -22,13 +22,21 @@ Out-of-distribution detection task experiment in saigereasearch.
 
 ### utils
 1. data split ipynb file
-2. losses file
-3. logger file
-4. metirc file
+2. losses - add additional loss function!
+3. metirc
+4. optimizer
 
 
 ### results
 1. All results will be saved in this folder.
+<pre>
+<code>
+    root/results/{exp_dir}
+                        |___config.py  # backup config file of this experiment.
+                        |___ckpt       # Folder for saving checkpoint file.
+                        |___log        # Folder for saving tensorboard event file.
+</code>
+</pre>
             
 
 
