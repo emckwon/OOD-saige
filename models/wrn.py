@@ -6,8 +6,12 @@ from basic_blocks import BasicBlock, NetworkBlock
 
 
 class WideResNet(nn.Module):
-    def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.0):
+    def __init__(cfg):
         super(WideResNet, self).__init__()
+        depth = cfg['depth']
+        num_classes = cfg['num_classes']
+        widen_factor = cfg['widen_factor']
+        dropRate = cfg['drop_rate']
         nChannels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         assert ((depth - 4) % 6 == 0)
         n = (depth - 4) // 6

@@ -7,10 +7,10 @@ import shutil
 import time
 import torch.backends.cudnn as cudnn
 
-import utils.losses as losses # getLoss
+import utils.losses as losses
 import utils.logging as logging # summary_write
 import utils.metrics as metrics # topks_correct
-import utils.optimizer as optim #getOptimizer
+import utils.optimizer as optim
 from utils.meters import TrainMeter, ValMeter
 from models.model_builder import getModel
 from datasets.data_loader import getDataLoader
@@ -18,7 +18,7 @@ from config import cfg
 
 #logger = logging.get_logger()
 
-def train_epoch(model, optimizer, in_loader, out_loader, loss_func, cur_epoch, train_meter):
+def train_epoch(model, optimizer, in_loader, out_loader, loss_func, cur_epoch, train_meter, op_cfg):
     model.train()
     train_meter.iter_tic()
     in_data_size = len(in_loader)
@@ -34,11 +34,12 @@ def train_epoch(model, optimizer, in_loader, out_loader, loss_func, cur_epoch, t
         data, targets = data.cuda(), targets.cuda()
         
         # Adjust Learning rate
-        lr = optim.get_epoch_lr(cur_epoch + float(cur_iter) / in_data_size)
+        lr = optim.get_lr_at_epoch(op_cfg, cur_epoch + float(cur_iter) / in_data_size)
         optim.set_lr(optimizer, lr)
         
         # Foward propagation and Calculate loss
         logits = model(data)
+        
         loss = loss_func(logits, targets)
         
         # Back propagation
@@ -47,7 +48,7 @@ def train_epoch(model, optimizer, in_loader, out_loader, loss_func, cur_epoch, t
         optimizer.step()
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(logits, targets, (1,))
         top1_err = [(1.0 - x / targets.size(0)) * 100.0 for x in num_topks_correct]
         
         # Add additional metrics!!!
@@ -78,10 +79,11 @@ def valid_epoch(model, in_loader, out_loader, loss_func, valid_meter):
         
         # Foward propagation and Calculate loss
         logits = model(data)
+        
         loss = loss_func(logits, targets)
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(logits, targets, (1,))
         top1_err = [(1.0 - x / targets.size(0)) * 100.0 for x in num_topks_correct]
         
         # Add additional metrics!!!
@@ -104,7 +106,7 @@ def main():
     
     # Model & Optimizer
     model = getModel(cfg['model'])
-    optimizer = optim.getOptimizer(cfg['optim'])
+    optimizer = optim.getOptimizer(model, cfg['optim'])
     start_epoch = 1
     
     # Load model and optimizer
@@ -120,7 +122,7 @@ def main():
         """
         model.load_state_dict(checkpoint['model_state'])
         if not cfg['finetuning']:
-            optimizer_state.load_state_dict(checkpoint['optimizer_state'])
+            optimizer.load_state_dict(checkpoint['optimizer_state'])
         if 'epoch' in checkpoint.keys()
             start_epoch = checkpoint['epoch']
         else:
@@ -155,7 +157,7 @@ def main():
     loss_func = losses.getLoss(cfg['loss'])
     
     for cur_epoch in range(start_epoch, cfg['max_epoch'] + 1):
-        train_summary = train_epoch(model, optimizer, in_train_loader, out_train_loader, loss_func, cur_epoch, train_meter)
+        train_summary = train_epoch(model, optimizer, in_train_loader, out_train_loader, loss_func, cur_epoch, train_meter, cfg['optim'])
         logging.summary_write(summary=train_summary, writer=writer_train)
         
         if cur_epoch % cfg['valid_epoch'] == 0:

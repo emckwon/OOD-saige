@@ -49,23 +49,26 @@ cfg['out_dataset']['split_root'] = '/home/sr2/Hyeokjun/datasets/data_split/'
 # Model config
 cfg['model'] = dict()
 cfg['model']['network_kind'] = 'wrn'
-cfg['model']['network_depth'] = 40
-cfg['model']['network_wide'] = 2
+cfg['model']['depth'] = 40
+cfg['model']['widen_factor'] = 2
 cfg['model']['num_classes'] = 5 # might be len(cfg['in_target'])
 cfg['model']['drop_rate'] = 0.0
 
 # Loss config
 cfg['loss'] = dict()
-cfg['loss']['loss_kind'] = 'cross_entropy'
+cfg['loss']['loss'] = 'cross_entropy_in_distribution'
+
 
 # Optimizer & scheduler config
 cfg['optim'] = dict()
+cfg['optim']['max_epoch'] = cfg['max_epoch']
 cfg['optim']['optimizer'] = 'sgd'
+cfg['optim']['momentum'] = 0.9
 cfg['optim']['nesterov'] = True
 cfg['optim']['weight_decay'] = 0.0
 cfg['optim']['lr'] = 0.01
-cfg['optim']['policy'] = 'cosine_annealing'
-cfg['optim']['warm_epoch'] = -1 # Warm starting epoch if negative, no warm starting.
+cfg['optim']['policy'] = 'cosine'
+cfg['optim']['warm_epoch'] = 0 # Warm starting epoch if smaller than zero, no warm starting.
 cfg['optim']['warm_lr'] = 0.0 # Warm starting learning rate.
 
 
