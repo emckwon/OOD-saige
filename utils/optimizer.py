@@ -1,6 +1,16 @@
 import math
 import torch
 
+
+# Implement new policy here!
+def lr_func_cosine(cfg, cur_epoch):
+    return (
+            cfg['lr']
+            * (math.cos(math.pi * cur_epoch / cfg['max_epoch']) + 1.0)
+            * 0.5
+        )
+
+
 _LR_POLICY = {
     'cosine' : lr_func_cosine,
 }
@@ -53,10 +63,4 @@ def get_lr_func(policy):
             "Does not support '{}' lr policy".format(policy)
         )
         
-# Implement new policy here!
-def lr_func_cosine(cfg, cur_epoch)
-    return (
-            cfg['lr']
-            * (math.cos(math.pi * cur_epoch / cfg['max_epoch']) + 1.0)
-            * 0.5
-        )
+

@@ -14,6 +14,7 @@ class SaigeDataset(torch.utils.data.Dataset):
         """
         self.data_root = data_root
         self.split_root = split_root
+        self.dataset = dataset
         self.transform = transform
         self.targets = targets
         
@@ -30,7 +31,7 @@ class SaigeDataset(torch.utils.data.Dataset):
             
     def __getitem__(self, idx):
         (target, fpath) = self.data_list[idx]
-        img = Image.open(os.path.join(self.data_root, dataset, fpath))
+        img = Image.open(os.path.join(self.data_root, self.dataset, fpath))
         img = self.transform(img)
         return img, target
        

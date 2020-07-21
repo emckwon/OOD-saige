@@ -2,11 +2,13 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from basic_blocks import BasicBlock, NetworkBlock
+import sys
+#sys.path.append('./')
+from models.basic_blocks import BasicBlock, NetworkBlock
 
 
 class WideResNet(nn.Module):
-    def __init__(cfg):
+    def __init__(self, cfg):
         super(WideResNet, self).__init__()
         depth = cfg['depth']
         num_classes = cfg['num_classes']
@@ -17,10 +19,10 @@ class WideResNet(nn.Module):
         n = (depth - 4) // 6
         block = BasicBlock
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
+        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=2,
                                padding=1, bias=False)
         # 1st block
-        self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 1, dropRate)
+        self.block1 = NetworkBlock(n, nChannels[0], nChannels[1], block, 2, dropRate)
         # 2nd block
         self.block2 = NetworkBlock(n, nChannels[1], nChannels[2], block, 2, dropRate)
         # 3rd block
@@ -47,6 +49,6 @@ class WideResNet(nn.Module):
         out = self.block2(out)
         out = self.block3(out)
         out = self.relu(self.bn1(out))
-        out = F.avg_pool2d(out, 8)
+        out = F.avg_pool2d(out, 14)
         out = out.view(-1, self.nChannels)
         return self.fc(out)

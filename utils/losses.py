@@ -5,6 +5,16 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Return zero
+def dont_care(logits, targets):
+    return 0
+
+# only care in-distribution's cross entropy loss.
+def cross_entropy_in_distribution(logits, targets):
+    return F.cross_entropy(logits[:len(targets)], targets)
+
+# Add new loss here!!!
+
 _LOSSES = {
                "cross_entropy_in_distribution": cross_entropy_in_distribution,
                "dont_care": dont_care,
@@ -21,10 +31,4 @@ def getLoss(cfg):
         raise NotImplementedError("Loss {} is not supported".format(loss_name))
     return _LOSSES[loss_name]
 
-# Return zero
-def dont_care(logits, targets):
-    return 0
 
-# only care in-distribution's cross entropy loss.
-def cross_entropy_in_distribution(logits, targets):
-    return F.cross_entropy(logits[:len(targets)], targets)

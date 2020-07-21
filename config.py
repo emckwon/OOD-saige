@@ -1,4 +1,4 @@
-from torchvision import transfroms as trn
+from torchvision import transforms as trn
 
 cfg = dict()
 
@@ -14,7 +14,7 @@ cfg['log_step'] = 100  # Step term of log
 cfg['exp_root'] = '/home/sr2/Hyeokjun/OOD-saige/results/'
 cfg['exp_dir'] = 'wrn_severstal_classifier'
 cfg['load_ckpt'] = '' # ckpt file(.pyth) name
-cfg['ckpt_epoch'] = 10  # Epoch term of saving checkpoint file.
+cfg['ckpt_epoch'] = 5  # Epoch term of saving checkpoint file.
 
 # DataLoader config
 cfg['dataloader'] = dict()
@@ -25,11 +25,11 @@ cfg['dataloader']['pin_memory'] = True
 # In-Dataset config
 cfg['in_dataset'] = dict()
 cfg['in_dataset']['dataset'] = 'Severstal'
-cfg['in_dataset']['targets'] = ['ok', '1', '2', '3', '4']
-cfg['in_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFilp(),
+cfg['in_dataset']['targets'] = ['ok','1', '2', '3']
+cfg['in_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFlip(),
                                          trn.RandomCrop(224),
                                          trn.ToTensor()])
-cfg['in_dataset']['valid_transform'] = trn.Compose([trn.CenterCrop(256),
+cfg['in_dataset']['valid_transform'] = trn.Compose([trn.CenterCrop(224),
                                          trn.ToTensor()])
 cfg['in_dataset']['data_root'] = '/home/sr2/HDD2/Openset/'
 cfg['in_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_split/'
@@ -37,11 +37,11 @@ cfg['in_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_sp
 # Out-Dataset config
 cfg['out_dataset'] = dict()
 cfg['out_dataset']['dataset'] = 'Severstal'
-cfg['out_dataset']['targets'] = []
-cfg['out_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFilp(),
+cfg['out_dataset']['targets'] = ['4']
+cfg['out_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFlip(),
                                           trn.RandomCrop(224),
                                           trn.ToTensor()])
-cfg['out_dataset']['valid_transfrom'] = trn.Compose([trn.CenterCrop(256),
+cfg['out_dataset']['valid_transform'] = trn.Compose([trn.CenterCrop(224),
                                           trn.ToTensor()])
 cfg['out_dataset']['data_root'] = '/home/sr2/HDD2/Openset/'
 cfg['out_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_split/'
@@ -51,7 +51,7 @@ cfg['model'] = dict()
 cfg['model']['network_kind'] = 'wrn'
 cfg['model']['depth'] = 40
 cfg['model']['widen_factor'] = 2
-cfg['model']['num_classes'] = 5 # might be len(cfg['in_target'])
+cfg['model']['num_classes'] = len(cfg['in_dataset']['targets'])
 cfg['model']['drop_rate'] = 0.0
 
 # Loss config
@@ -66,7 +66,7 @@ cfg['optim']['optimizer'] = 'sgd'
 cfg['optim']['momentum'] = 0.9
 cfg['optim']['nesterov'] = True
 cfg['optim']['weight_decay'] = 0.0
-cfg['optim']['lr'] = 0.01
+cfg['optim']['lr'] = 0.5
 cfg['optim']['policy'] = 'cosine'
 cfg['optim']['warm_epoch'] = 0 # Warm starting epoch if smaller than zero, no warm starting.
 cfg['optim']['warm_lr'] = 0.0 # Warm starting learning rate.
