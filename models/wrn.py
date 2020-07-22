@@ -56,7 +56,7 @@ class WideResNet(nn.Module):
     
 class WideResNet224(nn.Module):
     def __init__(self, cfg):
-        super(WideResNet, self).__init__()
+        super(WideResNet224, self).__init__()
         depth = cfg['depth']
         num_classes = cfg['num_classes']
         widen_factor = cfg['widen_factor']

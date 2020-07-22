@@ -3,7 +3,7 @@ OOD detectors
 Given inlier and outlier's logits return confidence score of each sample (0 ~ 1)
 
 """
-
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 

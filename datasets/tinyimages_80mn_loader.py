@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import torch
 from bisect import bisect_left
@@ -5,9 +6,10 @@ from bisect import bisect_left
 
 class TinyImages(torch.utils.data.Dataset):
 
-    def __init__(self, transform=None, exclude_cifar=True):
+    def __init__(self, root, transform=None, exclude_cifar=True):
 
-        data_file = open('/home/sr1/Extra_HDD/Hyeokjun/tiny_images.bin', "rb")
+        data_path = os.path.join(root, "tiny_images.bin")
+        data_file = open(data_path, "rb")
 
         def load_image(idx):
             data_file.seek(idx * 3072)
@@ -22,7 +24,7 @@ class TinyImages(torch.utils.data.Dataset):
 
         if exclude_cifar:
             self.cifar_idxs = []
-            with open('../utils/80mn_cifar_idxs.txt', 'r') as idxs:
+            with open('./utils/80mn_cifar_idxs.txt', 'r') as idxs:
                 for idx in idxs:
                     # indices in file take the 80mn database to start at 1, hence "- 1"
                     self.cifar_idxs.append(int(idx) - 1)

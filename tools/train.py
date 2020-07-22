@@ -28,7 +28,6 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
     avg_loss = 0
     correct = 0
     in_data_size = len(in_loader.dataset)
-    #TODO: What would be matter if out_data_size < in_data_size
     for cur_iter, in_set in enumerate(in_loader):
         #TODO: Dimension of in_set and out_set should be checked!
         
@@ -115,9 +114,7 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
     correct = 0
     total = 0
     in_data_size = len(in_loader.dataset)
-    out_data_size = len(out_loader.dataset)
     out_loader.dataset.offset = np.random.randint(len(out_loader.dataset))
-    #TODO: What would be matter if out_data_size < in_data_size
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):
         #TODO: Dimension of in_set and out_set should be checked!
         
@@ -136,19 +133,25 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
         logits = model(data)
         
         loss = loss_func(logits, targets)
-        confidence = detector_func(logits, targets)
+        confidences = detector_func(logits, targets)
         
-        # Back propagation
+        # Back propagation 
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         
+        ## METRICS ##
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
+        # Calculate OOD metrics (auroc, aupr, fpr)
+        #(auroc, aupr, fpr) = metrics.get_ood_measures(confidences, targets)
+        
         # Add additional metrics!!!
         
+        
+        ## UDATE STATS ##
         loss, top1_correct = loss.item(), top1_correct.item()
         avg_loss += loss
         correct += top1_correct
@@ -169,9 +172,11 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     avg_loss = 0
     correct = 0
     total = 0
+    max_iter = 0
+    avg_auroc = 0
+    avg_aupr = 0
+    avg_fpr = 0
     in_data_size = len(in_loader.dataset)
-    out_data_size = len(out_loader.dataset)
-    #TODO: What would be matter if out_data_size < in_data_size
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):        
         # Data to GPU
         data = torch.cat((in_set[0], out_set[0]), 0)
@@ -182,22 +187,35 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         logits = model(data)
         
         loss = loss_func(logits, targets)
-        confidence = detector_func(logits, targets)
+        confidences = detector_func(logits, targets)
         
+        ## METRICS ##
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
+        # Calculate OOD metrics (auroc, aupr, fpr)
+        (auroc, aupr, fpr) = metrics.get_ood_measures(confidences, targets)
+        
         # Add additional metrics!!!
         
+        ## Update stats ##
         loss, top1_correct = loss.item(), top1_correct.item()
         avg_loss += loss
         correct += top1_correct
         total += targets.size(0)
+        max_iter += 1
+        avg_auroc += auroc
+        avg_aupr += aupr
+        avg_fpr += fpr
+        
     
     summary = {
         'avg_loss': avg_loss / total,
         'classifier_acc': correct / total,
+        'AUROC': avg_auroc / max_iter,
+        'AUPR' : avg_aupr / max_iter,
+        'FPR95': avg_fpr / max_iter,
         'epoch': cur_epoch,
     }
     
@@ -215,8 +233,7 @@ def main():
     
     # Load model and optimizer
     if cfg['load_ckpt'] != '':
-        ckpt_path = os.path.join(cfg['exp_root'], cfg['exp_dir'], "ckpt", cfg['load_ckpt'])
-        checkpoint = torch.load(ckpt_path, map_location="cpu")
+        checkpoint = torch.load(cfg['load_ckpt'], map_location="cpu")
         """
         checkpoint = {
             "epoch": epoch,
@@ -279,7 +296,7 @@ def main():
         else:
             train_summary = train_epoch_wo_outlier(model, optimizer, in_train_loader, loss_func, cur_epoch, cfg['optim'], writer_train)
         summary_write(summary=train_summary, writer=writer_train)
-        print("Training result =======> Epoch [{}]/[{}]\nlr: {} | loss: {} | acc: {}".format(cur_epoch, cfg['max_epoch'], train_summary['lr'], train_summary['avg_loss'], train_summary['classifier_acc']))
+        print("Training result=========Epoch [{}]/[{}]=========\nlr: {} | loss: {} | acc: {}".format(cur_epoch, cfg['max_epoch'], train_summary['lr'], train_summary['avg_loss'], train_summary['classifier_acc']))
         
         
         if cur_epoch % cfg['valid_epoch'] == 0:
@@ -288,7 +305,7 @@ def main():
             else:
                 valid_summary = valid_epoch_wo_outlier(model, in_valid_loader, loss_func, cur_epoch)
             summary_write(summary=valid_summary, writer=writer_valid)
-            print("Validate result =======> Epoch [{}]/[{}]\nloss: {} | acc: {}".format(cur_epoch, cfg['max_epoch'], valid_summary['avg_loss'], valid_summary['classifier_acc']))
+            print("Validate result=========Epoch [{}]/[{}]=========\nloss: {} | acc: {}".format(cur_epoch, cfg['max_epoch'], valid_summary['avg_loss'], valid_summary['classifier_acc']))
         
         if cur_epoch % cfg['ckpt_epoch'] == 0:
             ckpt_dir = os.path.join(cfg['exp_root'], cfg['exp_dir'], "ckpt")

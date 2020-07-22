@@ -4,6 +4,7 @@ import torch
 from torchvision import datasets, transforms as trn
 from torch.utils.data import DataLoader
 
+from datasets.tinyimages_80mn_loader import TinyImages
 from datasets.saige_dataset import SaigeDataset
 
     
@@ -51,7 +52,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                             num_workers=dl_cfg['num_workers'], pin_memory=dl_cfg['pin_memory'])
         print('Dataset SVHN ready.')
     elif ds_cfg['dataset'] == 'tinyimagenet':
-        loader = torch.utils.data.DataLoader(TinyImages(root=data_root,
+        loader = torch.utils.data.DataLoader(TinyImages(root=ds_cfg['data_root'],
                                                         transform=transform),
                                              batch_size=dl_cfg['batch_size'],
                                              shuffle=train,

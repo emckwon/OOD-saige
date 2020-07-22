@@ -13,8 +13,10 @@ cfg['ngpu'] = 1
 cfg['log_step'] = 100  # Step term of log
 cfg['exp_root'] = '/home/sr2/Hyeokjun/OOD-saige/results/'
 cfg['exp_dir'] = 'wrn_severstal_classifier'
-cfg['load_ckpt'] = '' # ckpt file(.pyth) name
 cfg['ckpt_epoch'] = 5  # Epoch term of saving checkpoint file.
+
+# Load Checkpoint
+cfg['load_ckpt'] = '' # ckpt file(.pyth) "absolute path"
 
 # DataLoader config
 cfg['dataloader'] = dict()
@@ -58,6 +60,9 @@ cfg['model']['drop_rate'] = 0.0
 cfg['loss'] = dict()
 cfg['loss']['loss'] = 'cross_entropy_in_distribution'
 
+# Detector config
+cfg['detector'] = dict()
+cfg['detector']['detector'] = 'msp'
 
 # Optimizer & scheduler config
 cfg['optim'] = dict()

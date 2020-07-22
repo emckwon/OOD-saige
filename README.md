@@ -35,6 +35,9 @@ Out-of-distribution detection task experiment in saigereasearch.
                         |___config.py  # backup config file of this experiment.
                         |___ckpt       # Folder for saving checkpoint file.
                         |___log        # Folder for saving tensorboard event file.
+                        |___valid      # Folder for saving validation results
+                                |___valid_config.py # Validation exp. config file
+                                |___{Dataset name}  # Result folder exp. with {out-distribution dataset} which use in validation.
 </code>
 </pre>
            
@@ -115,6 +118,9 @@ config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명
 3. OOD-detection metric들은 아직 추가되지 않았습니다. 최대한 빨리 추가예정이고, 필요하신 metric이 있으면 말씀해주세요.(train code도 건들여야해서 추가방법을 말씀드리겠습니다)
 
 ## 5. Running Code
+## Training
+Model의 training과 finetuning을 목적으로 사용하는 script입니다.
+
 1. {home}/OOD-saige/에 있는 config.py 파일을 실험에 맞게 설정해줍니다.(실험이 정상 시작되면, 해당 config.py는 해당 실험 폴더에 복사되어 저장됩니다. default_config.py는 수정하지 말아주세요.)
 2. Terminal의 {home}/OOD-saige/ 폴더에 있는 상태에서 python으로 실행시켜주셔야합니다. 즉
 <pre>
@@ -122,6 +128,24 @@ config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명
     :~{home}/OOD-saige >> python tools/train.py 
 </code>
 </pre>
+3. 학습시 사용한 config.py는 각 실험 폴더 내부에 백업됩니다.
+**IMPORTANT** 기존의 model을 가져와서 다른 loss나 데이터셋으로 **finetuning**을 하는 경우 되도록 **cfg['exp_dir']** 을 별도로 지정하여 새로운 실험 폴더를 만들어서 하는 것을 추천드립니다.(기존 model의 training config나 checkpoint가 덮어씌워질 수도 있습니다.)
+
+## Validation
+Model의 evaluation을 목적으로 사용하는 script입니다.
+
+1. {home}/OOD-saige/에 있는 config.py 파일을 실험에 맞게 설정해줍니다.(실험이 정상 시작되면, 해당 config.py는 해당 실험 폴더에 복사되어 저장됩니다. default_config.py는 수정하지 말아주세요.)
+2. Dataset config 옵션은 이전과 동일하게 설정하면 됩니다. 중요한 점은 **cfg['load_ckpt']** 옵션에 불러 올 checkpoint의 절대 경로를 명시해주셔야 합니다.
+3. Terminal의 {home}/OOD-saige/ 폴더에 있는 상태에서 python으로 실행시켜주셔야합니다. 즉
+<pre>
+<code>
+    :~{home}/OOD-saige >> python tools/valid.py 
+</code>
+</pre>
+4. Validation 시 사용한 config.py는 각 실험 폴더 내부에 **valid** 폴더 내부에 결과와 함께 백업됩니다.
+
+## Test
+Will be added
 
 
 
