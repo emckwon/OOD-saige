@@ -11,6 +11,9 @@ def dont_care(logits, targets):
 
 # only care in-distribution's cross entropy loss.
 def cross_entropy_in_distribution(logits, targets):
+    """
+    Cross entropy loss when logits include outlier's logits also.(ignore outlier's)
+    """
     return F.cross_entropy(logits[:len(targets)], targets)
 
 # Add new loss here!!!

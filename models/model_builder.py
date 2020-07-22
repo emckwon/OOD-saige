@@ -1,9 +1,10 @@
 import torch
 import torch.nn as nn
-from models.wrn import WideResNet
+from models.wrn import WideResNet, WideResNet224
 
 _MODEL_TYPES = {
     "wrn": WideResNet,
+    "wrn224": WideResNet224,
 }
 
 def getModel(m_cfg):
