@@ -22,9 +22,11 @@ Out-of-distribution detection task experiment in saigereasearch.
 
 ### utils
 1. data split ipynb file
-2. losses - add additional loss function!
-3. metirc
+2. losses - **add additional loss function!**
+3. metirc - **add additional metric!**
 4. optimizer
+5. detector - **add additional detector!**
+
 
 
 ### results
@@ -68,8 +70,6 @@ Out-of-distribution detection task experiment in saigereasearch.
 1. outlier와 같이 train이나 validation을 진행하는 경우, inlier와 outlier의 logit을 보고 confidence score를 계산하는 부분입니다. 이로부터 계산된 confidence score는 다양한 metric에서 사용될 수 있습니다.
 2. 기본적으로 loss와 매우 유사합니다. input으로 받는 것(logits과 targets)이나 utils/losses.py와 utils/detectors.py의 구조나 호출방법은 거의 같다고 보시면 됩니다.
 3. loss와의 차이점은 output으로 각 sample에 대한 confidence score를 return한다는 점입니다. 가령 input으로 받은 logits의 차원이 (batch_size, logit_size)였다면, (batch_size, 1)의 차원을 가지고, 0 ~ 1의 score를 각 원소로 가지는 tensor를 return 해야합니다.
-
-Confidence score를 이용한 OOD-metirc은 추가예정입니다.
 
 ## 3. Datasets
 ## Avaliable now
@@ -129,6 +129,7 @@ Model의 training과 finetuning을 목적으로 사용하는 script입니다.
 </code>
 </pre>
 3. 학습시 사용한 config.py는 각 실험 폴더 내부에 백업됩니다.
+
 **IMPORTANT** 기존의 model을 가져와서 다른 loss나 데이터셋으로 **finetuning**을 하는 경우 되도록 **cfg['exp_dir']** 을 별도로 지정하여 새로운 실험 폴더를 만들어서 하는 것을 추천드립니다.(기존 model의 training config나 checkpoint가 덮어씌워질 수도 있습니다.)
 
 ## Validation
