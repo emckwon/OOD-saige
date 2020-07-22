@@ -61,12 +61,52 @@ Out-of-distribution detection task experiment in saigereasearch.
 2. model은 해당 dictionary 위에 같은 폴더의 각 model이 구현되어있는 python script로 부터 import 해주어야합니다.
 3. 현재 WideResNet class를 불러올 수 있도록 해두었으니 새로운 model을 쓰실때 참고바랍니다.
 
-## 3. Notice
+## 3. Datasets
+## Avaliable now
+CIFAR-10/100, SVHN, TinyImageNet, Severtal, HBT, SDI, DAGM
+
+## Dataset Configuration
+config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명입니다. 기본적으로 *In-Dataset config*와 *Out-Dataset config*로 두 section으로 구분되어 있으며, 각각 *cfg['in_dataset']*과 *cfg['out_dataset']* dictionary에서 옵션 설정이 가능합니다.
+
+1. ['dataset']의 item으로 사용할 dataset의 선택이 가능합니다.
+2. ['targets']로 해당 dataset에서 실제로 사용할 class만 선택가능하지만, /Openset/ 폴더 내에 있는 데이터셋에서만 사용가능한 옵션입니다.(모두 쓸려면, 모든 class의 모든 라벨을 열거해야합니다)
+3. ['~_transform']로 각 split에서 사용할 transform을 지정해야합니다.
+4. ['data_root']는 실제 data가 들어있는 directory의 root path가 지정되어야 합니다.
+5. ['split_root']는 사용할 train/valid/test.txt split이 들어있는 directory의 root path가 지정되어야 합니다.
+
+['dataset']에 가능한 목록은 다음과 같습니다.
+<pre>
+<code>
+    'Severstal', 'DAGM', 'HBT/LAMI', 'HBT/NUDE', 'SDI/34Ah', 'SDI/37Ah', 'SDI/60Ah', 'cifar10', 'cifar100', 'svhn', 'tinyimagenet'
+</code>
+</pre>
+
+다음은 예시입니다. 해당 옵션으로는 Inlier로, 'Severstal'을 쓰지만 2번째 결함 class는 in-distribution으로 사용하지 않습니다. Outlier는 'cifar10'의 모든 data를 이용해 학습합니다.
+<pre>
+<code>
+    (config.py)
+        ...
+        # In-Dataset config
+        cfg['in_dataset'] = dict()
+        cfg['in_dataset']['dataset'] = 'Severstal'
+        cfg['in_dataset']['targets'] = ['ok','1', '3', '4']
+        ...
+        
+        # Out-Dataset config
+        cfg['out_dataset'] = dict()
+        cfg['out_dataset']['dataset'] = 'cifar10'
+        #cfg['in_dataset']['targets'] = []  # This option will not be activated.
+        ...
+</code>
+</pre>
+
+
+## 4. Notice
 1. 현재로서는 Single GPU를 이용한 실험만 가능하도록 구현해두었습니다.
 2. 기본적으로 구현되어있는 models/wrn.py의 WideResNet는 32 by 32 image input을 가정하고 있는 model 입니다. 224 by 224 image input 사용시에는 같은 파일의 WideResNet224 class를 일단 사용하면 error는 나지 않지만, 제가 임의로 만들어낸 network이기 때문에 성능 보장은 할 수 없습니다.
 3. OOD-detection metric들은 아직 추가되지 않았습니다. 최대한 빨리 추가예정이고, 필요하신 metric이 있으면 말씀해주세요.(train code도 건들여야해서 추가방법을 말씀드리겠습니다)
 
-## 4. Running Code
+## 5. Running Code
 1. {home}/OOD-saige/에 있는 config.py 파일을 실험에 맞게 설정해줍니다.(실험이 정상 시작되면, 해당 config.py는 해당 실험 폴더에 복사되어 저장됩니다. default_config.py는 수정하지 말아주세요.)
 2. Terminal의 {home}/OOD-saige/ 폴더에 있는 상태에서 python으로 실행시켜주셔야합니다. 즉
 <pre>
