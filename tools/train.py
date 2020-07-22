@@ -238,7 +238,7 @@ def main():
                                     dl_cfg=cfg['dataloader'],
                                     split="valid")
     
-    if len(cfg['out_dataset']['targets']) != 0:
+    if cfg['out_dataset'] is not None:
         out_train_loader = getDataLoader(ds_cfg=cfg['out_dataset'],
                                          dl_cfg=cfg['dataloader'],
                                          split="train")
