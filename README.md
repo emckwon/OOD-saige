@@ -73,7 +73,7 @@ config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명
 3. ['~_transform']로 각 split에서 사용할 transform을 지정해야합니다.
 4. ['data_root']는 실제 data가 들어있는 directory의 root path가 지정되어야 합니다.
 5. ['split_root']는 사용할 train/valid/test.txt split이 들어있는 directory의 root path가 지정되어야 합니다.
-6. **Important** 만약 out-distribution을 사용하지 않으려면 cfg['out_dataset']=None을 지정해주세요.
+6. **[Important]** 만약 out-distribution을 사용하지 않으려면 cfg['out_dataset']=None을 지정하고, cfg['out_dataset']에 관한 모든 하위 옵션은 주석처리 해주셔야합니다.
 
 ['dataset']에 가능한 목록은 다음과 같습니다.
 <pre>
