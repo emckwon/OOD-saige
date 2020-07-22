@@ -10,6 +10,7 @@ from tqdm import tqdm
 import sys
 sys.path.append('./')
 import utils.losses as losses
+import utils.detectors as detectors
 import utils.metrics as metrics
 import utils.optimizer as optim
 from models.model_builder import getModel
@@ -108,7 +109,7 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
     
 
 
-def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, cur_epoch, op_cfg, writer):
+def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, detector_func, cur_epoch, op_cfg, writer):
     model.train()
     avg_loss = 0
     correct = 0
@@ -131,10 +132,11 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, cu
         lr = optim.get_lr_at_epoch(op_cfg, cur_epoch + float(cur_iter) / in_data_size)
         optim.set_lr(optimizer, lr)
         
-        # Foward propagation and Calculate loss
+        # Foward propagation and Calculate loss and confidence
         logits = model(data)
         
         loss = loss_func(logits, targets)
+        confidence = detector_func(logits, targets)
         
         # Back propagation
         optimizer.zero_grad()
@@ -162,7 +164,7 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, cu
     return summary
   
     
-def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, cur_epoch):
+def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch):
     model.eval()
     avg_loss = 0
     correct = 0
@@ -176,10 +178,11 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, cur_epoch):
         targets = in_set[1]
         data, targets = data.cuda(), targets.cuda()
         
-        # Foward propagation and Calculate loss
+        # Foward propagation and Calculate loss and confidence
         logits = model(data)
         
         loss = loss_func(logits, targets)
+        confidence = detector_func(logits, targets)
         
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
@@ -264,11 +267,15 @@ def main():
     # Loss function
     loss_func = losses.getLoss(cfg['loss'])
     
+    # Outlier detector
+    detector_func = detectors.getDetector(cfg['detector'])
+    
+    
     print("Start training. Result will be saved in {}".format(exp_dir))
     
     for cur_epoch in range(start_epoch, cfg['max_epoch'] + 1):
         if out_train_loader is not None:
-            train_summary = train_epoch_w_outlier(model, optimizer, in_train_loader, out_train_loader, loss_func, cur_epoch, cfg['optim'], writer_train)
+            train_summary = train_epoch_w_outlier(model, optimizer, in_train_loader, out_train_loader, loss_func, detector_func, cur_epoch, cfg['optim'], writer_train)
         else:
             train_summary = train_epoch_wo_outlier(model, optimizer, in_train_loader, loss_func, cur_epoch, cfg['optim'], writer_train)
         summary_write(summary=train_summary, writer=writer_train)
@@ -277,7 +284,7 @@ def main():
         
         if cur_epoch % cfg['valid_epoch'] == 0:
             if out_valid_loader is not None:
-                valid_summary = valid_epoch_w_outlier(model, in_valid_loader, out_valid_loader, loss_func, cur_epoch)
+                valid_summary = valid_epoch_w_outlier(model, in_valid_loader, out_valid_loader, loss_func, detector_func, cur_epoch)
             else:
                 valid_summary = valid_epoch_wo_outlier(model, in_valid_loader, loss_func, cur_epoch)
             summary_write(summary=valid_summary, writer=writer_valid)

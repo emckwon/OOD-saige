@@ -58,6 +58,9 @@ cfg['model']['drop_rate'] = 0.0
 cfg['loss'] = dict()
 cfg['loss']['loss'] = 'cross_entropy_in_distribution'
 
+# Detector config
+cfg['detector'] = dict()
+cfg['detector']['detector'] = 'msp'
 
 # Optimizer & scheduler config
 cfg['optim'] = dict()

@@ -38,8 +38,8 @@ Out-of-distribution detection task experiment in saigereasearch.
 </code>
 </pre>
            
-## 2. Implement own losses and models
-### loss
+## 2. Implement own losses, detectors and models
+### Loss
 1. tools/train.py를 보면, loss에는 기본적으로 하나의 batch로 concat된 inlier와 outlier의 logits과 inlier의 targets이 들어가게 됩니다. 즉,
 <pre>
 <code>
@@ -53,13 +53,20 @@ Out-of-distribution detection task experiment in saigereasearch.
         ...
 </code>
 </pre>
-
 2. loss_func은 utils/losses.py에 구현되어 있어야합니다. 이 파일에 있는 **_LOSSES** dictionary에 config.py 파일에서 지정할 이름을 key로 하고, loss function를 item으로 가지도록 구현한 loss함수를 추가해주어야 합니다. loss 함수는 해당 dictionary 위에 구현되어 있어야합니다. 기본적으로 *dont_care*와 *cross_entropy_in_distribution*을 구현해두었으니 참고바랍니다.
+3. loss function은 logits와 targets을 보고, 실수인 loss 값을 return 해야합니다.
 
 ### Model
 1. tools/train.py를 보면, model은 models/model_builder.py에 구현되어 있는 *getModel* 함수를 통해 가져옵니다. model을 불러오기 위해서는 model_builder.py의 **_MODEL_TYPES** dictionary에 config.py 파일에서 지정할 이름을 key로 하고, model class를 item으로 가지도록 model class를 추가해주어야 합니다.
 2. model은 해당 dictionary 위에 같은 폴더의 각 model이 구현되어있는 python script로 부터 import 해주어야합니다.
 3. 현재 WideResNet class를 불러올 수 있도록 해두었으니 새로운 model을 쓰실때 참고바랍니다.
+
+### Detector
+1. outlier와 같이 train이나 validation을 진행하는 경우, inlier와 outlier의 logit을 보고 confidence score를 계산하는 부분입니다. 이로부터 계산된 confidence score는 다양한 metric에서 사용될 수 있습니다.
+2. 기본적으로 loss와 매우 유사합니다. input으로 받는 것(logits과 targets)이나 utils/losses.py와 utils/detectors.py의 구조나 호출방법은 거의 같다고 보시면 됩니다.
+3. loss와의 차이점은 output으로 각 sample에 대한 confidence score를 return한다는 점입니다. 가령 input으로 받은 logits의 차원이 (batch_size, logit_size)였다면, (batch_size, 1)의 차원을 가지고, 0 ~ 1의 score를 각 원소로 가지는 tensor를 return 해야합니다.
+
+Confidence score를 이용한 OOD-metirc은 추가예정입니다.
 
 ## 3. Datasets
 ## Avaliable now
