@@ -17,6 +17,9 @@ from models.model_builder import getModel
 from datasets.data_loader import getDataLoader
 from config import cfg
 
+global global_cfg
+global_cfg = dict()
+
 
 def summary_write(summary, writer):
     for key in summary.keys():
@@ -24,6 +27,7 @@ def summary_write(summary, writer):
         
 
 def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op_cfg, writer):
+    global global_cfg
     model.train()
     avg_loss = 0
     correct = 0
@@ -45,7 +49,9 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
         # Foward propagation and Calculate loss
         logits = model(data)
         
-        loss = loss_func(logits, targets)
+        loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        loss = loss_dict['loss']
+
         
         # Back propagation
         optimizer.zero_grad()
@@ -73,6 +79,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
   
     
 def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
+    global global_cfg
     model.eval()
     avg_loss = 0
     correct = 0
@@ -86,7 +93,8 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
         # Foward propagation and Calculate loss
         logits = model(data)
         
-        loss = loss_func(logits, targets)
+        loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        loss = loss_dict['loss']
         
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
@@ -109,6 +117,7 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
 
 
 def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, detector_func, cur_epoch, op_cfg, writer):
+    global global_cfg
     model.train()
     avg_loss = 0
     correct = 0
@@ -132,8 +141,11 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
         # Foward propagation and Calculate loss and confidence
         logits = model(data)
         
-        loss = loss_func(logits, targets)
-        confidences = detector_func(logits, targets)
+        loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        loss = loss_dict['loss']
+        confidences_dict = detector_func(logits, targets, global_cfg['detector'])
+        confidences = confidences_dict['confidences']
+
         
         # Back propagation 
         optimizer.zero_grad()
@@ -168,6 +180,7 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
   
     
 def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch):
+    global global_cfg  
     model.eval()
     avg_loss = 0
     correct = 0
@@ -186,8 +199,10 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         # Foward propagation and Calculate loss and confidence
         logits = model(data)
         
-        loss = loss_func(logits, targets)
-        confidences = detector_func(logits, targets)
+        loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        loss = loss_dict['loss']
+        confidences_dict = detector_func(logits, targets, global_cfg['detector'])
+        confidences = confidences_dict['confidences']
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
@@ -222,6 +237,7 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     return summary
     
 def main():
+    global global_cfg
     # Reproducibility
     np.random.seed(cfg['seed'])
     torch.manual_seed(cfg['seed'])
@@ -234,18 +250,13 @@ def main():
     # Load model and optimizer
     if cfg['load_ckpt'] != '':
         checkpoint = torch.load(cfg['load_ckpt'], map_location="cpu")
-        """
-        checkpoint = {
-            "epoch": epoch,
-            "model_state": sd,
-            "optimizer_state": optimizer.state_dict(),
-        }
-        """
         model.load_state_dict(checkpoint['model_state'])
+        print("load model on '{}' is complete.".format(cfg['load_ckpt']))
         if not cfg['finetuning']:
             optimizer.load_state_dict(checkpoint['optimizer_state'])
-        if 'epoch' in checkpoint.keys():
+        if 'epoch' in checkpoint.keys() and not cfg['finetuning']:
             start_epoch = checkpoint['epoch']
+            print("Restore epoch {}".format(start_epoch))
         else:
             start_epoch = 1
     cudnn.benchmark = True
@@ -283,10 +294,11 @@ def main():
     
     # Loss function
     loss_func = losses.getLoss(cfg['loss'])
+    global_cfg['loss'] = cfg['loss']
     
     # Outlier detector
     detector_func = detectors.getDetector(cfg['detector'])
-    
+    global_cfg['detector'] = cfg['detector']
     
     print("Start training. Result will be saved in {}".format(exp_dir))
     

@@ -50,7 +50,7 @@ cfg['out_dataset']['split_root'] = '/home/sr2/Hyeokjun/OOD-saige/datasets/data_s
 
 # Model config
 cfg['model'] = dict()
-cfg['model']['network_kind'] = 'wrn'
+cfg['model']['network_kind'] = 'wrn224'
 cfg['model']['depth'] = 40
 cfg['model']['widen_factor'] = 2
 cfg['model']['num_classes'] = len(cfg['in_dataset']['targets'])

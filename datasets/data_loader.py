@@ -58,6 +58,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                              shuffle=train,
                                              num_workers=dl_cfg['num_workers'],
                                              pin_memory=dl_cfg['pin_memory'])
+        print('Dataset Tinyimagenet ready.')
     else:
         raise NotImplementedError(
             print("Given dataset {} doesn't exist in implemented dataset.".format(dataset))

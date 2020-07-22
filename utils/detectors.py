@@ -8,16 +8,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 # Dummy detector
-def dummy_overconfident_detector(logits, targets):
-    return torch.ones(logtis.size(0), 1)
+def dummy_overconfident_detector(logits, targets, cfg):
+    return {
+        'confidences': torch.ones(logtis.size(0), 1),
+    }
 
 # Dummy detector
-def dummy_selfless_detector(logits, targets):
-    return torch.zeros(logtis.size(0), 1)
+def dummy_selfless_detector(logits, targets, cfg):
+    return {
+        'confidences': torch.zeros(logtis.size(0), 1),
+    }
 
 # maximum softmax probablity (MSP) detector
-def msp_detector(logits, targets):    
-    return torch.max(logits, dim=1, keepdim=True).values
+def msp_detector(logits, targets, cfg):    
+    return {
+        'confidences': torch.max(logits, dim=1, keepdim=True).values,
+    }
 
 # Add new detector here!!!
 
