@@ -1,4 +1,4 @@
-afrom torchvision import transforms as trn
+from torchvision import transforms as trn
 
 cfg = dict()
 
