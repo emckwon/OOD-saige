@@ -25,11 +25,13 @@ def summary_write(summary, writer):
         writer.add_scalar(key, summary[key], summary['epoch'])
         
     
-def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
+def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
     global global_cfg  
     model.eval()
     avg_loss = 0
     correct = 0
+    total = 0
+    
     in_data_size = len(in_loader.dataset)
     for cur_iter, in_set in enumerate(in_loader):        
         # Data to GPU
@@ -40,6 +42,8 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
         # Foward propagation and Calculate loss
         logits = model(data)
         
+        global_cfg['loss']['model'] = model
+        global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
         
@@ -48,11 +52,14 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!!
+        metrics.show_wrong_samples_targets(logits[:len(targets)], targets, logfile2)
         
         loss, top1_correct = loss.item(), top1_correct.item()
         avg_loss += loss
         correct += top1_correct
+        total += targets.size(0)
     
+    logfile2.write("Dataset size [{}] | Total samples [{}] | Correct samples [{}]\n".format(in_data_size, total, correct))
     summary = {
         'avg_loss': avg_loss / in_data_size,
         'classifier_acc': correct / in_data_size,
@@ -62,7 +69,7 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
     return summary
     
 
-def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch):
+def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch, logfile2):
     model.eval()
     global global_cfg  
     avg_loss = 0
@@ -82,6 +89,10 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         # Foward propagation and Calculate loss and confidence
         logits = model(data)
         
+        global_cfg['loss']['model'] = model
+        global_cfg['loss']['data'] = data
+        global_cfg['detector']['model'] = model
+        global_cfg['detector']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
         confidences_dict = detector_func(logits, targets, global_cfg['detector'])
@@ -96,6 +107,7 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         (auroc, aupr, fpr) = metrics.get_ood_measures(confidences, targets)
         
         # Add additional metrics!!!
+        metrics.show_wrong_samples_targets(logits[:len(targets)], targets, logfile2)
         
         ## Update stats ##
         loss, top1_correct = loss.item(), top1_correct.item()
@@ -127,7 +139,7 @@ def main():
     # Model & Optimizer
     model = getModel(cfg['model'])
     start_epoch = 1
-    max_epoch = 5
+    max_epoch = 3
     
     # Load model and optimizer
     if cfg['load_ckpt'] != '':
@@ -163,25 +175,30 @@ def main():
     # Outlier detector
     detector_func = detectors.getDetector(cfg['detector'])  
     global_cfg['detector'] = cfg['detector']
-    
-    print("Start validation. Result will be saved in {}".format(exp_dir))
+    print("=======================IMPORTANT CONFIG=======================")
+    print("Model    : {}\n \
+Loss     : {}\n \
+Detector : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss'], cfg['detector']['detector']))
+    print("========Start validation. Result will be saved in {}".format(exp_dir))
     
     logfile = open(os.path.join(exp_dir, "validation_log.txt"), "w")
+    logfile2 = open(os.path.join(exp_dir, "wrong_predict_log.txt"), "w")
     for cur_epoch in range(start_epoch, max_epoch + 1):
         if out_valid_loader is not None:
             valid_summary = valid_epoch_w_outlier(model, in_valid_loader,
                                                   out_valid_loader, loss_func,
-                                                  detector_func, cur_epoch)
+                                                  detector_func, cur_epoch, logfile2)
             summary_log = "=========Epoch [{}]/[{}]=========\nloss: {} | acc: {}\nAUROC: {} | AUPR: {} | FPR95: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'], valid_summary['AUROC'], valid_summary['AUPR'], valid_summary['FPR95'])
         else:
             valid_summary = valid_epoch_wo_outlier(model, in_valid_loader,
-                                                   loss_func, cur_epoch)
+                                                   loss_func, cur_epoch, logfile2)
             summary_log = "=========Epoch [{}]/[{}]=========\nloss: {} | acc: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'])
             
         print(summary_log)
         logfile.write(summary_log)
             
     logfile.close()
+    logfile2.close()
         
     
 

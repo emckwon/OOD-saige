@@ -121,3 +121,9 @@ def get_ood_measures(confidences, targets, recall_level=0.95):
 
 
 # Add new metrics here!!!
+def show_wrong_samples_targets(logits, targets, log):
+    predicts = logits.max(dim=1).indices
+    wrong_targets = ((logits.max(dim=1).indices) != targets)
+    for idx, i in enumerate(wrong_targets):
+        if i:
+            log.write("classifier predict [{}] / Ground truth [{}]\n".format(predicts[idx], targets[idx]))
