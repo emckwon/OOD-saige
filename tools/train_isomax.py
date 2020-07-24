@@ -53,6 +53,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
+        distances = loss_dict['distances']
 
         
         # Back propagation
@@ -61,7 +62,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
         optimizer.step()
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!!
@@ -93,15 +94,18 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
         data, targets = data.cuda(), targets.cuda()
         
         # Foward propagation and Calculate loss
+        model.classifier.metrics_evaluation_mode = True
         logits = model(data)
 
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        model.classifier.metrics_evaluation_mode = False
         loss = loss_dict['loss']
+        distances = loss_dict['distances']
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!
@@ -152,7 +156,8 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
         global_cfg['detector']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
-        confidences_dict = detector_func(logits, targets, global_cfg['detector'])
+        distances = loss_dict['distances']
+        confidences_dict = detector_func(distances, targets, global_cfg['detector'])
         confidences = confidences_dict['confidences']
 
         
@@ -163,7 +168,7 @@ def train_epoch_w_outlier(model, optimizer, in_loader, out_loader, loss_func, de
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Calculate OOD metrics (auroc, aupr, fpr)
@@ -206,19 +211,22 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         data, targets = data.cuda(), targets.cuda()
         
         # Foward propagation and Calculate loss and confidence
+        model.classifier.metrics_evaluation_mode = True
         logits = model(data)
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         global_cfg['detector']['model'] = model
         global_cfg['detector']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        model.classifier.metrics_evaluation_mode = False
         loss = loss_dict['loss']
-        confidences_dict = detector_func(logits, targets, global_cfg['detector'])
+        distances = loss_dict['distances']
+        confidences_dict = detector_func(distances, targets, global_cfg['detector'])
         confidences = confidences_dict['confidences']
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Calculate OOD metrics (auroc, aupr, fpr)

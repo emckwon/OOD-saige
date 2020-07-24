@@ -4,6 +4,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import utils.procedures as utils
 
 # Return zero
 def dont_care(logits, targets, cfg):
@@ -89,17 +90,66 @@ def learning_confidence_loss(logits, targets, cfg):
         'confidence': confidence
     }
 
+# IsoMax Loss
+# alpha should be configurated.
+def GenericLossSecondPart(features, targets, cfg):
     
+    alpha = cfg['alpha']
+    pnorm = 2
+    weights = cfg['model'].classifier.weights
+    #print(weights.size())
+    #print("alpha {} | pnorm {}".format(alpha, pnorm))
+
+    targets_one_hot = torch.eye(weights.size(0))[targets]
+
+    if features.size(0) != targets_one_hot.size(0):
+        targets_one_hot = torch.cat((targets_one_hot, torch.zeros(features.size(0) - targets_one_hot.size(0), weights.size(0))), 0)
+    
+    targets_one_hot = targets_one_hot.long().cuda()
+    
+    distances = utils.euclidean_distances(features, weights, pnorm)
+    intra_inter_distances = torch.where(targets_one_hot != 0, -distances, distances)
+    intra_distances = -intra_inter_distances[intra_inter_distances < 0]
+    inter_distances = intra_inter_distances[intra_inter_distances > 0]
+    transformed_distances = distances
+    regularization = 0
+
+    probabilities_for_training = nn.Softmax(dim=1)(-alpha * transformed_distances)
+    probabilities_at_targets = probabilities_for_training[range(len(targets)), targets]
+    loss = -torch.log(probabilities_at_targets).mean() + regularization
+    probabilities = nn.Softmax(dim=1)(-distances)
+
+    return {
+        'loss': loss,
+        'distances': -transformed_distances,
+        'target_distances': intra_distances.data.cpu().mean(),
+        'non_target_distances': inter_distances.data.cpu().mean(),
+        'entropies': utils.entropies_from_probabilities(probabilities).tolist()
+    }
+
+
+# Loss for training ova network
+def ova_bce_loss(features, targets, cfg):
+    features = torch.squeeze(F.sigmoid(features), dim=1)
+    targets = (targets == cfg['ova_target']).float()
+    loss = F.binary_cross_entropy(features, targets)
+    
+    return {
+        'loss': loss,
+    }
+
 
 
 # Add new loss here!!!
 
 _LOSSES = {
-               "cross_entropy_in_distribution": cross_entropy_in_distribution,
-               "dont_care": dont_care,
-               "oe": outlier_exposure,
-               "oecc": outlier_exposure_confidence_control,
-               "lc" : learning_confidence_loss,
+                "cross_entropy_in_distribution": cross_entropy_in_distribution,
+                "dont_care": dont_care,
+                "oe": outlier_exposure,
+                "oecc": outlier_exposure_confidence_control,
+                "lc" : learning_confidence_loss,
+                "isomax" : GenericLossSecondPart,
+                "ova_bce": ova_bce_loss, 
            }
 
 def getLoss(cfg):

@@ -16,6 +16,15 @@ def getDataLoader(ds_cfg, dl_cfg, split):
         train = False
         transform = ds_cfg['valid_transform']
         
+    if ds_cfg['split'] == 'train':
+        split = 'train'
+    elif ds_cfg['split'] == 'valid':
+        split = 'valid'
+    elif ds_cfg['split'] == 'test':
+        split = 'test'
+    else: 
+        pass
+    
     if ds_cfg['dataset'] in ['Severstal', 'DAGM', 'HBT/LAMI', 'HBT/NUDE', 'SDI/34Ah',
             'SDI/37Ah', 'SDI/60Ah']:
         loader = DataLoader(SaigeDataset(data_root=ds_cfg['data_root'],
@@ -45,7 +54,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
         print('Dataset CIFAR100 ready.')
     elif ds_cfg['dataset'] == 'svhn': # FIX
         loader = DataLoader(datasets.SVHN(root=ds_cfg['data_root'],
-                                          train=train,
+                                          split="train" if split == "train" else "test",
                                           download=True,
                                           transform=transform),
                             batch_size=dl_cfg['batch_size'], shuffle=train,

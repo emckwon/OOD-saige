@@ -40,15 +40,18 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
         data, targets = data.cuda(), targets.cuda()
         
         # Foward propagation and Calculate loss
+        model.classifier.metrics_evaluation_mode = True
         logits = model(data)
-        
+
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
+        model.classifier.metrics_evaluation_mode = False
         loss = loss_dict['loss']
+        distances = loss_dict['distances']
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!!
@@ -72,7 +75,6 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
 def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch, logfile2):
     model.eval()
     global global_cfg  
-    avg_loss = 0
     correct = 0
     total = 0
     max_iter = 0
@@ -81,6 +83,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     avg_fpr = 0
     inlier_conf = 0
     outlier_conf = 0
+    inlier_dist = 0
+    outlier_dist = 0
     in_data_size = len(in_loader.dataset)
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):        
         # Data to GPU
@@ -89,32 +93,33 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         data, targets = data.cuda(), targets.cuda()
         #print("in {} out {}".format(in_set[0].size(), out_set[0].size()))
         # Foward propagation and Calculate loss and confidence
+        model.metrics_evaluation_mode = True
         logits = model(data)
-        
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         global_cfg['detector']['model'] = model
         global_cfg['detector']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
-        confidences_dict = detector_func(logits, targets, global_cfg['detector'])
+        distances = loss_dict['distances']
+        confidences_dict = detector_func(distances, targets, global_cfg['detector'])
         confidences = confidences_dict['confidences']
-        
+        model.metrics_evaluation_mode = False
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(distances[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Calculate OOD metrics (auroc, aupr, fpr)
         (auroc, aupr, fpr) = metrics.get_ood_measures(confidences, targets)
         
         # Add additional metrics!!!
-        metrics.show_wrong_samples_targets(logits[:len(targets)], targets, logfile2)
+        metrics.show_wrong_samples_targets(distances[:len(targets)], targets, logfile2)
         
         ## Update stats ##
-        loss, top1_correct = loss.item(), top1_correct.item()
-        avg_loss += loss
+        #loss, top1_correct = loss.item(), top1_correct.item()
+        top1_correct = top1_correct.item()
         correct += top1_correct
         total += targets.size(0)
         max_iter += 1
@@ -123,16 +128,19 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         avg_fpr += fpr
         inlier_conf += confidences_dict['inlier_mean']
         outlier_conf += confidences_dict['outlier_mean']
+        inlier_dist += loss_dict['target_distances']
+        outlier_dist += loss_dict['non_target_distances']
         
     
     summary = {
-        'avg_loss': avg_loss / total,
         'classifier_acc': correct / total,
         'AUROC': avg_auroc / max_iter,
         'AUPR' : avg_aupr / max_iter,
         'FPR95': avg_fpr / max_iter,
         'inlier_confidence': inlier_conf / max_iter,
         'outlier_confidence' : outlier_conf / max_iter,
+        'inlier_distance' : inlier_dist / max_iter,
+        'outlier_distance' : outlier_dist / max_iter,
         'epoch': cur_epoch,
     }
     
@@ -195,11 +203,11 @@ Detector : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss'], cfg['
             valid_summary = valid_epoch_w_outlier(model, in_valid_loader,
                                                   out_valid_loader, loss_func,
                                                   detector_func, cur_epoch, logfile2)
-            summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {}\nAUROC: {} | AUPR: {} | FPR95: {}\nInlier Conf. {} | Outlier Conf. {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'], valid_summary['AUROC'], valid_summary['AUPR'], valid_summary['FPR95'], valid_summary['inlier_confidence'], valid_summary['outlier_confidence'])
+            summary_log = "=============Epoch [{}]/[{}]=============\nacc: {}\nAUROC: {} | AUPR: {} | FPR95: {}\nInlier Conf. {} | Outlier Conf. {}\nTarget dist. {} | Non-target dist. {}\n".format(cur_epoch, max_epoch, valid_summary['classifier_acc'], valid_summary['AUROC'], valid_summary['AUPR'], valid_summary['FPR95'], valid_summary['inlier_confidence'], valid_summary['outlier_confidence'], valid_summary['inlier_distance'], valid_summary['outlier_distance'])
         else:
             valid_summary = valid_epoch_wo_outlier(model, in_valid_loader,
                                                    loss_func, cur_epoch, logfile2)
-            summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'])
+            summary_log = "=========Epoch [{}]/[{}]=========\nloss: {} | acc: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'])
             
         print(summary_log)
         logfile.write(summary_log)

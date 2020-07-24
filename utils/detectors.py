@@ -11,26 +11,38 @@ from torch.autograd import Variable
 
 # Dummy detector
 def dummy_overconfident_detector(logits, targets, cfg):
+    confidences = torch.ones(logits.size(0), 1) /2
     return {
-        'confidences': torch.ones(logtis.size(0), 1),
+        'confidences': confidences,
+        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+        'outlier_mean': confidences[len(targets):].data.cpu().mean()
     }
 
 # Dummy detector
 def dummy_selfless_detector(logits, targets, cfg):
+    confidences = torch.zeros(logits.size(0), 1)
     return {
-        'confidences': torch.zeros(logtis.size(0), 1),
+        'confidences': confidences,
+        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+        'outlier_mean': confidences[len(targets):].data.cpu().mean()
     }
 
 # maximum softmax probablity (MSP) detector
-def msp_detector(logits, targets, cfg):    
+def msp_detector(logits, targets, cfg): 
+    confidences =  torch.max(F.softmax(logits, dim=1), dim=1, keepdim=True).values
     return {
-        'confidences': torch.max(F.softmax(logits, dim=1), dim=1, keepdim=True).values,
+        'confidences': confidences,
+        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+        'outlier_mean': confidences[len(targets):].data.cpu().mean()
     }
 
 # Negative entropy score (Entropic score)
 def negative_entropy(logits, targets, cfg):
+    confidences = (F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)).sum(dim=1)
     return {
-        'confidences': (F.softmax(logits, dim=1) * F.log_softmax(logits, dim=1)).sum(dim=1)
+        'confidences': confidences,
+        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+        'outlier_mean': confidences[len(targets):].data.cpu().mean()
     }
 
 
@@ -63,7 +75,9 @@ def ODIN(logits, targets, cfg):
 #     pred = pred.cpu().numpy()
     
     return {
-        'confidences': pred
+        'confidences': pred,
+        'inlier_mean': pred[:len(targets)].data.cpu().mean(),
+        'outlier_mean': pred[len(targets):].data.cpu().mean()
     }
 
 
