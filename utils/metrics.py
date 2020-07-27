@@ -107,9 +107,10 @@ def get_ood_measures(confidences, targets, recall_level=0.95):
     pos = np.array(confidences[:num_inlier]).reshape((-1, 1))
     neg = np.array(confidences[num_inlier:]).reshape((-1, 1))
     examples = np.squeeze(np.vstack((pos, neg)))
+    
     labels = np.ones(len(examples), dtype=np.int32)
     labels[len(pos):] -= 1
-    
+    #print(examples, labels)
     auroc = sk.roc_auc_score(labels, examples)
     aupr = sk.average_precision_score(labels, examples)
     fpr = fpr_and_fdr_at_recall(labels, examples, recall_level)
@@ -117,7 +118,28 @@ def get_ood_measures(confidences, targets, recall_level=0.95):
     return auroc, aupr, fpr
 
 
+def classify_acc_w_ood(logits, targets, confidences, step=1000):
+    threshold_min = torch.min(confidences)
+    threshold_max = torch.max(confidences)
+    threshold_diff = threshold_max - threshold_min
+    total = logits.size(0) 
 
+    class_correct = (torch.argmax(logits[:len(targets)], dim=1) == targets).float()
+    
+    max_threshold = threshold_min
+    max_acc = -1.
+    for i in range(step + 1):
+        threshold = threshold_min + threshold_diff * (i / step)
+        inliers = (confidences >= threshold).float()
+        outliers = (confidences < threshold).float()
+        inlier_correct = (torch.squeeze(inliers[:len(targets)], dim=1) * class_correct[:]).sum()
+        outlier_correct = outliers[len(targets):].sum()
+        acc = (inlier_correct + outlier_correct) / total
+        if max_acc < acc:
+            max_acc = acc
+            max_threshold = threshold
+    
+    return max_acc
 
 
 # Add new metrics here!!!

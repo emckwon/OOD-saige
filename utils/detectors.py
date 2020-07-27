@@ -105,6 +105,7 @@ def LC_detector(logits, targets, cfg):
     return {
         'confidences': pred
     }
+    
 
 
 # Add new detector here!!!

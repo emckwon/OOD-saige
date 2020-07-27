@@ -152,11 +152,15 @@ def main():
     start_epoch = 1
     max_epoch = 1
     
+    assert len(cfg['load_ckpt']) == len(cfg['in_dataset']['targets']) + 1
     # Load model and optimizer
-    if cfg['load_ckpt'] != '':
-        checkpoint = torch.load(cfg['load_ckpt'], map_location="cpu")
-        model.load_state_dict(checkpoint['model_state'])
-        print("load model on '{}' is complete.".format(cfg['load_ckpt']))
+    for idx, ckpt in enumerate(cfg['load_ckpt']):
+        checkpoint = torch.load(ckpt, map_location="cpu")
+        if idx == 0:
+            model.ava_network.load_state_dict(checkpoint['model_state'])
+        else:
+            model.ova_networks[idx - 1].load_state_dict(checkpoint['model_state'])
+        print("load model on '{}' is complete.".format(ckpt))
     cudnn.benchmark = True
     
     # Data Loader

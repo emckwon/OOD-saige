@@ -14,11 +14,12 @@ class OVNNI(nn.Module):
         
         
     def forward(self, x):
-        ava_logits = F.softmax(self.ava_network(x))
+        ava_logits = F.softmax(self.ava_network(x), dim=1)
         out = torch.zeros_like(ava_logits).cuda()
         for idx, ova_network in enumerate(self.ova_networks):
-            ovo_logit = F.relu(ova_network(x))
-            out[:, idx] = ovo_logit * ava_logits[:, idx]
+            ova_logit = F.relu(ova_network(x))
+
+            out[:, idx] = ova_logit[:,0] * ava_logits[:, idx]
             
         return out
             
