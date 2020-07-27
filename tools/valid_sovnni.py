@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import torch.nn.functional as F
 import argparse
 import shutil
 import time
@@ -46,13 +47,24 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
+        
+        ### Post processing ###
         K = logits.size(1) // 2
+        ava_logits = F.softmax(logits[:, :K], dim=1)
+        out = torch.zeros_like(ava_logits)
+        for i in range(K):
+            ova_logit = F.relu(logits[:, K + i])
+            out[:, i] = ova_logit[:] * ava_logits[:, i]
+            
+        logits = out
+        #######################
+        
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!!
-        metrics.show_wrong_samples_targets(logits[:len(targets), :K], targets, logfile2)
+        metrics.show_wrong_samples_targets(logits[:len(targets)], targets, logfile2)
         
         loss, top1_correct = loss.item(), top1_correct.item()
         avg_loss += loss
@@ -98,13 +110,23 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         global_cfg['detector']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
+        
+        ### Post processing ###
+        K = logits.size(1) // 2
+        ava_logits = F.softmax(logits[:, :K], dim=1)
+        out = torch.zeros_like(ava_logits)
+        for i in range(K):
+            ova_logit = F.relu(logits[:, K + i])
+            out[:, i] = ova_logit[:] * ava_logits[:, i]
+        logits = out
+        #######################
+        
         confidences_dict = detector_func(logits, targets, global_cfg['detector'])
         confidences = confidences_dict['confidences']
-        K = logits.size(1) // 2
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets), :K], targets, (1,))
+        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Calculate OOD metrics (auroc, aupr, fpr)

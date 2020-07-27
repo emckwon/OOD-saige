@@ -143,7 +143,7 @@ def share_ovnni_loss(logits, targets, cfg):
     loss = F.cross_entropy(logits[:len(targets)], targets)
     K = logits.size(1) // 2
     for i in range(K):
-        loss += F.binary_cross_entropy(F.sigmoid(logits[:, K + i]), (targets == i).float())
+        loss += F.binary_cross_entropy(F.sigmoid(logits[:len(targets), K + i]), (targets == i).float())
         
     return {
         'loss': loss 

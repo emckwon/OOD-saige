@@ -45,21 +45,21 @@ def negative_entropy(logits, targets, cfg):
         'outlier_mean': confidences[len(targets):].data.cpu().mean()
     }
 
-def share_ovnni_detector(logits, targets, cfg):
-    K = logits.size(1) // 2
-    ava_logits = F.softmax(logits[:, :K], dim=1)
-    confidences = torch.zeros_like(ava_logits)
-    for i in enumerate(range(K)):
-        ova_logit = F.relu(logits[:, K + i])
-        confidences[:, i] = ova_logit[:,0] * ava_logits[:, i]
-        print(confidences[:, i].size())
+# def share_ovnni_detector(logits, targets, cfg):
+#     K = logits.size(1) // 2
+#     ava_logits = F.softmax(logits[:, :K], dim=1)
+#     confidences = torch.zeros_like(ava_logits)
+#     for i in enumerate(range(K)):
+#         ova_logit = F.relu(logits[:, K + i])
+#         confidences[:, i] = ova_logit[:,0] * ava_logits[:, i]
+#         #print(confidences[:, i].size())
     
-    confidences = F.softmax(confidences, dim=1)
-    return {
-        'confidences': confidences,
-        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
-        'outlier_mean': confidences[len(targets):].data.cpu().mean()
-    }
+#     confidences = F.softmax(confidences, dim=1)
+#     return {
+#         'confidences': confidences,
+#         'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+#         'outlier_mean': confidences[len(targets):].data.cpu().mean()
+#     }
 
 
 # ODIN detector
@@ -133,7 +133,7 @@ _DETECTORS = {
                 "ne": negative_entropy,
                 "odin": ODIN,
                 "lc": LC_detector,
-                "sovnni": share_ovnni_detector,
+                #"sovnni": share_ovnni_detector,
                }
 
 def getDetector(cfg):
