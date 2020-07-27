@@ -12,7 +12,7 @@ cfg['ngpu'] = 1
 # Log config
 cfg['log_step'] = 100  # Step term of log
 cfg['exp_root'] = '/home/sr2/Hyeokjun/OOD-saige/results/'
-cfg['exp_dir'] = 'wrn_severstal012_sovnni'
+cfg['exp_dir'] = 'wrn_severstal_shallow_ovnni/ok'
 cfg['ckpt_epoch'] = 50  # Epoch term of saving checkpoint file.
 
 # Load Checkpoint
@@ -20,7 +20,7 @@ cfg['load_ckpt'] = '' # ckpt file(.pyth) "absolute path"
 
 # DataLoader config
 cfg['dataloader'] = dict()
-cfg['dataloader']['batch_size'] = 64
+cfg['dataloader']['batch_size'] = 128
 cfg['dataloader']['num_workers'] = 8
 cfg['dataloader']['pin_memory'] = True
 
@@ -28,7 +28,7 @@ cfg['dataloader']['pin_memory'] = True
 cfg['in_dataset'] = dict()
 cfg['in_dataset']['split'] = 'train'
 cfg['in_dataset']['dataset'] = 'Severstal'
-cfg['in_dataset']['targets'] = ['ok', '1', '2']
+cfg['in_dataset']['targets'] = ['ok', '1', '2', '3', '4']
 cfg['in_dataset']['train_transform'] = trn.Compose([trn.RandomHorizontalFlip(), 
                                                     trn.RandomCrop(224),
                                                     trn.ToTensor()])
@@ -73,20 +73,21 @@ cfg['out_dataset'] = None
 # Model config
 cfg['model'] = dict()
 cfg['model']['network_kind'] = 'wrn224'
-cfg['model']['depth'] = 40
+cfg['model']['depth'] = 16
 cfg['model']['widen_factor'] = 2
-cfg['model']['num_classes'] = len(cfg['in_dataset']['targets']) * 2
-#cfg['model']['num_classes'] = 
+#cfg['model']['num_classes'] = len(cfg['in_dataset']['targets'])
+cfg['model']['num_classes'] = 1
 cfg['model']['drop_rate'] = 0.3
 
 # Loss config
 cfg['loss'] = dict()
-cfg['loss']['loss'] = 'sovnni'
+cfg['loss']['loss'] = 'ova_bce'
+cfg['loss']['ova_target'] = 0
 #cfg['loss']['oe_weight'] = 0.1
 
 # Detector config
 cfg['detector'] = dict()
-cfg['detector']['detector'] = 'sovnni'
+cfg['detector']['detector'] = 'msp'
 cfg['detector']['temperature'] = 1
 cfg['detector']['epsilon'] = 0.001
 

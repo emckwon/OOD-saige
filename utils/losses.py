@@ -139,6 +139,17 @@ def ova_bce_loss(features, targets, cfg):
     }
 
 
+def share_ovnni_loss(logits, targets, cfg):
+    loss = F.cross_entropy(logits[:len(targets)], targets)
+    K = logits.size(1) // 2
+    for i in range(K):
+        loss += F.binary_cross_entropy(F.sigmoid(logits[:, K + i]), (targets == i).float())
+        
+    return {
+        'loss': loss 
+    }
+
+
 
 # Add new loss here!!!
 
@@ -149,7 +160,8 @@ _LOSSES = {
                 "oecc": outlier_exposure_confidence_control,
                 "lc" : learning_confidence_loss,
                 "isomax" : GenericLossSecondPart,
-                "ova_bce": ova_bce_loss, 
+                "ova_bce": ova_bce_loss,
+                "sovnni": share_ovnni_loss,
            }
 
 def getLoss(cfg):
