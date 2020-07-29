@@ -84,6 +84,9 @@ config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명
 4. ['data_root']는 실제 data가 들어있는 directory의 root path가 지정되어야 합니다.
 5. ['split_root']는 사용할 train/valid/test.txt split이 들어있는 directory의 root path가 지정되어야 합니다.
 6. **[Important]** 만약 out-distribution을 사용하지 않으려면 cfg['out_dataset']=None을 지정하고, cfg['out_dataset']에 관한 모든 하위 옵션은 주석처리 해주셔야합니다.
+**[NEW 2020.07.29]
+7. ['split']으로 해당 데이터 셋의 어떤 split을 사용할지 custom하게 정할 수 있습니다.
+8. ['batch_size']로 in/out distribution 각 dataset의 batch size를 custom하게 조절할 수 있습니다.(지금까지는 거의 1:1로 sampling)
 
 ['dataset']에 가능한 목록은 다음과 같습니다.
 <pre>
@@ -114,8 +117,8 @@ config.py에서 dataset에 관한 옵션을 설정하는 방법에 대한 설명
 
 ## 4. Notice
 1. 현재로서는 Single GPU를 이용한 실험만 가능하도록 구현해두었습니다.
-2. 기본적으로 구현되어있는 models/wrn.py의 WideResNet는 32 by 32 image input을 가정하고 있는 model 입니다. 224 by 224 image input 사용시에는 같은 파일의 WideResNet224 class를 일단 사용하면 error는 나지 않지만, 제가 임의로 만들어낸 network이기 때문에 성능 보장은 할 수 없습니다.
-3. OOD-detection metric들은 아직 추가되지 않았습니다. 최대한 빨리 추가예정이고, 필요하신 metric이 있으면 말씀해주세요.(train code도 건들여야해서 추가방법을 말씀드리겠습니다)
+**[NEW 2020.07.29]
+2. PGD (Projected Gradient Descent) attack module이 구현되었습니다. 현재로서는 valid.py 코드에서 validation시 선택적으로 사용가능한 옵션입니다. 필요할 경우 각 논문 구현시 training 코드에 적용시켜 사용할 수도 있습니다. cfg['PGD']라는 새로운 옵션에서 ['epsilon'], ['iters'], ['iter_size']를 설정해주셔야 사용가능합니다.
 
 ## 5. Running Code
 ## Training
@@ -145,8 +148,6 @@ Model의 evaluation을 목적으로 사용하는 script입니다.
 </pre>
 4. Validation 시 사용한 config.py는 각 실험 폴더 내부에 **valid** 폴더 내부에 결과와 함께 백업됩니다.
 
-## Test
-Will be added
 
 
 
