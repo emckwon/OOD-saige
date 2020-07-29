@@ -1,5 +1,5 @@
 import os
-import numpy as np
+
 import torch
 import argparse
 import shutil
@@ -15,6 +15,9 @@ import utils.optimizer as optim
 from models.model_builder import getModel
 from datasets.data_loader import getDataLoader
 from config import cfg
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
 
 global global_cfg
 global_cfg = dict()
@@ -83,6 +86,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     outlier_conf = 0
     avg_acc = 0
     in_data_size = len(in_loader.dataset)
+    inliers_conf = []
+    outliers_conf = []
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):        
         # Data to GPU
         data = torch.cat((in_set[0], out_set[0]), 0)
@@ -125,6 +130,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         avg_fpr += fpr
         inlier_conf += confidences_dict['inlier_mean']
         outlier_conf += confidences_dict['outlier_mean']
+        inliers_conf.append(confidences[:len(targets)].squeeze(1).data.cpu())
+        outliers_conf.append(confidences[len(targets):].squeeze(1).data.cpu())
         avg_acc += acc
         
     
@@ -136,6 +143,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         'FPR95': avg_fpr / max_iter,
         'inlier_confidence': inlier_conf / max_iter,
         'outlier_confidence' : outlier_conf / max_iter,
+        'inliers' : torch.cat(inliers_conf).numpy(),
+        'outliers': torch.cat(outliers_conf).numpy(),
         'acc': avg_acc / max_iter,
         'epoch': cur_epoch,
     }
@@ -204,6 +213,24 @@ Detector : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss'], cfg['
                                                   out_valid_loader, loss_func,
                                                   detector_func, cur_epoch, logfile2)
             summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {} | acc_w_ood: {}\nAUROC: {} | AUPR: {} | FPR95: {}\nInlier Conf. {} | Outlier Conf. {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'], valid_summary['acc'], valid_summary['AUROC'], valid_summary['AUPR'], valid_summary['FPR95'], valid_summary['inlier_confidence'], valid_summary['outlier_confidence'])
+            
+            
+            ind_max, ind_min = np.max(valid_summary['inliers']),np.min(valid_summary['inliers'])
+            ood_max, ood_min = np.max(valid_summary['outliers']),np.min(valid_summary['outliers'])
+
+
+            ranges = (ind_min if ind_min < ood_min else ood_min,
+                      ind_max if ind_max > ood_max else ood_max)
+            
+            fig=plt.figure()
+            sns.distplot(valid_summary['inliers'].ravel(), hist_kws={'range': ranges}, kde=False, bins=50, norm_hist=True, label='In-distribution')
+            sns.distplot(valid_summary['outliers'], hist_kws={'range': ranges}, kde=False, bins=50, norm_hist=True, label='Out-of-distribution')
+            plt.xlabel('Confidence')
+            plt.ylabel('Density')
+            fig.legend()
+            fig.savefig(os.path.join(exp_dir, "confidences.png"))
+            
+            
         else:
             valid_summary = valid_epoch_wo_outlier(model, in_valid_loader,
                                                    loss_func, cur_epoch, logfile2)

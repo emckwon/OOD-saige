@@ -149,6 +149,20 @@ def share_ovnni_loss(logits, targets, cfg):
         'loss': loss 
     }
 
+def adversarial_learning_outlier_exposure(logits, targets, cfg):
+    in_len = len(targets)
+    in_logits = logits[:in_len]
+    out_logits = logits[in_len:]
+    in_loss = F.cross_entropy(in_logits, targets)
+    out_loss = -(out_logits.mean(1) - torch.logsumexp(out_logits, dim=1)).mean()
+    loss = cfg['beta1'] * in_loss + cfg['beta3'] * out_loss
+    
+    return {
+        'loss' : loss,
+        'in_loss': in_loss,
+        'out_loss': out_loss,
+    }
+
 
 
 # Add new loss here!!!
@@ -162,7 +176,8 @@ _LOSSES = {
                 "isomax" : GenericLossSecondPart,
                 "ova_bce": ova_bce_loss,
                 "sovnni": share_ovnni_loss,
-           }
+                "aloe": adversarial_learning_outlier_exposure,
+        }
 
 def getLoss(cfg):
     """

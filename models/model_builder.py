@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from models.wrn import WideResNet, WideResNet224, WideResNet256
 from models.isomax import WideResNetIsoMax224, WideResNetIsoMax32
+from models.godin import WideResNetGODIN32, WideResNetGODIN224 
 import models.md_resnet as resnet
 from models.ovnni import OVNNI
 
@@ -12,7 +13,10 @@ _MODEL_TYPES = {
     "wrnisomax224": WideResNetIsoMax224,
     "wrnisomax32": WideResNetIsoMax32,
     "resnet34": resnet.ResNet34,
-    "ovnni": OVNNI
+    "ovnni": OVNNI,
+    "wrngodin32": WideResNetGODIN32,
+    "wrngodin224": WideResNetGODIN224, 
+    
 }
 
 def getModel(m_cfg):

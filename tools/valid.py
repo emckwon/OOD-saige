@@ -1,5 +1,4 @@
 import os
-import numpy as np
 import torch
 import argparse
 import shutil
@@ -14,7 +13,11 @@ import utils.metrics as metrics
 import utils.optimizer as optim
 from models.model_builder import getModel
 from datasets.data_loader import getDataLoader
+from utils.pgd_attack import LinfPGDAttack
 from config import cfg
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
 
 global global_cfg
 global_cfg = dict()
@@ -25,7 +28,7 @@ def summary_write(summary, writer):
         writer.add_scalar(key, summary[key], summary['epoch'])
         
     
-def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
+def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2, attack_in=None):
     global global_cfg  
     model.eval()
     avg_loss = 0
@@ -36,12 +39,16 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
     for cur_iter, in_set in enumerate(in_loader):        
         # Data to GPU
         data = in_set[0]
-        targets = in_set[1]
-        data, targets = data.cuda(), targets.cuda()
+        targets = in_set[1].cuda()
         
-        # Foward propagation and Calculate loss
+        if attack_in is not None:
+            adv_inputs = attack_in.perturb(data.cuda(), targets)
+            data = adv_inputs.cuda()
+        else:
+            data, targets = data.cuda(), targets.cuda()
+            # Foward propagation and Calculate loss
+        
         logits = model(data)
-        
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
@@ -69,7 +76,7 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
     return summary
     
 
-def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch, logfile2):
+def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func, cur_epoch, logfile2, attack_in=None, attack_out=None):
     model.eval()
     global global_cfg  
     avg_loss = 0
@@ -83,11 +90,24 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     outlier_conf = 0
     avg_acc = 0
     in_data_size = len(in_loader.dataset)
+    inliers_conf = []
+    outliers_conf = []
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):        
+        in_data = in_set[0]
+        out_data = out_set[0]
+        targets = in_set[1].cuda()
+        
+        if attack_in is not None:
+            adv_inputs = attack_in.perturb(in_data.cuda(), targets)
+            in_data = adv_inputs.cuda()
+        
+        if attack_out is not None:
+            adv_inputs = attack_out.perturb(out_data.cuda())
+            out_data = adv_inputs.cuda()
+        
         # Data to GPU
-        data = torch.cat((in_set[0], out_set[0]), 0)
-        targets = in_set[1]
-        data, targets = data.cuda(), targets.cuda()
+        data = torch.cat((in_data, out_data), 0)
+        data = data.cuda()
         #print("in {} out {}".format(in_set[0].size(), out_set[0].size()))
         # Foward propagation and Calculate loss and confidence
         logits = model(data)
@@ -125,6 +145,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         avg_fpr += fpr
         inlier_conf += confidences_dict['inlier_mean']
         outlier_conf += confidences_dict['outlier_mean']
+        inliers_conf.append(confidences[:len(targets)].squeeze(1).data.cpu())
+        outliers_conf.append(confidences[len(targets):].squeeze(1).data.cpu())
         avg_acc += acc
         
     
@@ -136,6 +158,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         'FPR95': avg_fpr / max_iter,
         'inlier_confidence': inlier_conf / max_iter,
         'outlier_confidence' : outlier_conf / max_iter,
+        'inliers' : torch.cat(inliers_conf).numpy(),
+        'outliers': torch.cat(outliers_conf).numpy(),
         'acc': avg_acc / max_iter,
         'epoch': cur_epoch,
     }
@@ -163,16 +187,31 @@ def main():
     in_valid_loader = getDataLoader(ds_cfg=cfg['in_dataset'],
                                     dl_cfg=cfg['dataloader'],
                                     split="valid")
+    attack_in = None
+    if cfg['PGD'] is not None:
+        print("Setup inlier PGD attack module.")
+        attack_in = LinfPGDAttack(model=model, eps=cfg['PGD']['epsilon'],
+                              nb_iter=cfg['PGD']['iters'],
+                              eps_iter=cfg['PGD']['iter_size'],
+                              rand_init=True, loss_func='CE')
     
     if cfg['out_dataset'] is not None:
         out_valid_loader = getDataLoader(ds_cfg=cfg['out_dataset'],
                                          dl_cfg=cfg['dataloader'],
                                          split="valid")
         exp_dir = os.path.join(cfg['exp_root'], cfg['exp_dir'], "valid", cfg['out_dataset']['dataset'])
+        attack_out = None
+        if cfg['PGD'] is not None:
+            print("Setup outlier PGD attack module.")
+            attack_out = LinfPGDAttack(model=model, eps=cfg['PGD']['epsilon'],
+                              nb_iter=cfg['PGD']['iters'],
+                              eps_iter=cfg['PGD']['iter_size'],
+                              rand_init=True, loss_func='OE')
     else:
         out_train_loader = None
         out_valid_loader = None
         exp_dir = os.path.join(cfg['exp_root'], cfg['exp_dir'], "valid", "classifier")
+        
     
     # Result directory and make tensorboard event file
     if os.path.exists(exp_dir) is False:
@@ -198,11 +237,28 @@ Detector : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss'], cfg['
         if out_valid_loader is not None:
             valid_summary = valid_epoch_w_outlier(model, in_valid_loader,
                                                   out_valid_loader, loss_func,
-                                                  detector_func, cur_epoch, logfile2)
+                                                  detector_func, cur_epoch, logfile2, attack_in, attack_out)
             summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {} | acc_w_ood: {}\nAUROC: {} | AUPR: {} | FPR95: {}\nInlier Conf. {} | Outlier Conf. {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'], valid_summary['acc'], valid_summary['AUROC'], valid_summary['AUPR'], valid_summary['FPR95'], valid_summary['inlier_confidence'], valid_summary['outlier_confidence'])
+            
+            ind_max, ind_min = np.max(valid_summary['inliers']), np.min(valid_summary['inliers'])
+            ood_max, ood_min = np.max(valid_summary['outliers']), np.min(valid_summary['outliers'])
+
+
+            ranges = (ind_min if ind_min < ood_min else ood_min,
+                      ind_max if ind_max > ood_max else ood_max)
+            
+            fig=plt.figure()
+            sns.distplot(valid_summary['inliers'].ravel(), hist_kws={'range': ranges}, kde=False, bins=50, norm_hist=True, label='In-distribution')
+            sns.distplot(valid_summary['outliers'], hist_kws={'range': ranges}, kde=False, bins=50, norm_hist=True, label='Out-of-distribution')
+            plt.xlabel('Confidence')
+            plt.ylabel('Density')
+            fig.legend()
+            fig.savefig(os.path.join(exp_dir, "confidences.png"))
+            
+            
         else:
             valid_summary = valid_epoch_wo_outlier(model, in_valid_loader,
-                                                   loss_func, cur_epoch, logfile2)
+                                                   loss_func, cur_epoch, logfile2, attack_in)
             summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'])
             
         print(summary_log)

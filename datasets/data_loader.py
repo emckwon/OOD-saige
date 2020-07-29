@@ -33,7 +33,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                          split=split,
                                          transform=transform,
                                          targets=ds_cfg['targets']),
-                            batch_size=dl_cfg['batch_size'], shuffle=train,
+                            batch_size=ds_cfg['batch_size'], shuffle=train,
                             num_workers=dl_cfg['num_workers'], pin_memory=dl_cfg['pin_memory'])
         print('Dataset {} ready.'.format(ds_cfg['dataset']))
     elif ds_cfg['dataset'] == 'cifar10':
@@ -41,7 +41,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                              train=train,
                                              download=True,
                                              transform=transform),
-                            batch_size=dl_cfg['batch_size'], shuffle=train,
+                            batch_size=ds_cfg['batch_size'], shuffle=train,
                             num_workers=dl_cfg['num_workers'], pin_memory=dl_cfg['pin_memory'])
         print('Dataset CIFAR10 ready.')
     elif ds_cfg['dataset'] == 'cifar100':
@@ -49,7 +49,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                               train=train,
                                               download=True,
                                               transform=transform),
-                            batch_size=dl_cfg['batch_size'], shuffle=train,
+                            batch_size=ds_cfg['batch_size'], shuffle=train,
                             num_workers=dl_cfg['num_workers'], pin_memory=dl_cfg['pin_memory'])
         print('Dataset CIFAR100 ready.')
     elif ds_cfg['dataset'] == 'svhn': # FIX
@@ -57,7 +57,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                           split="train" if split == "train" else "test",
                                           download=True,
                                           transform=transform),
-                            batch_size=dl_cfg['batch_size'], shuffle=train,
+                            batch_size=ds_cfg['batch_size'], shuffle=train,
                             num_workers=dl_cfg['num_workers'], pin_memory=dl_cfg['pin_memory'])
         print('Dataset SVHN ready.')
     elif ds_cfg['dataset'] == 'tinyimagenet':
@@ -65,7 +65,7 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                                         transform=transform),
                                              batch_size=dl_cfg['batch_size'],
                                              shuffle=train,
-                                             num_workers=dl_cfg['num_workers'],
+                                             num_workers=ds_cfg['num_workers'],
                                              pin_memory=dl_cfg['pin_memory'])
         print('Dataset Tinyimagenet ready.')
     else:
