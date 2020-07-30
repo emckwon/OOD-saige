@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import argparse
 from tensorboardX import SummaryWriter
@@ -16,6 +17,7 @@ import utils.metrics as metrics
 import utils.optimizer as optim
 from models.model_builder import getModel
 from datasets.data_loader import getDataLoader
+from utils.pgd_attack import RotPGDAttack
 from config import cfg
 
 global global_cfg
@@ -33,7 +35,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, attack_in, cur_epoch, op
     avg_loss = 0
     correct = 0
     in_data_size = len(in_loader.dataset)
-    for cur_iter, (x_tf_0, x_tf_90, x_tf_180, x_tf_270, x_tf_trans, target_trans_x, target_trans_y, targets) in enumerate(in_loader):
+    for cur_iter, (x_tf_0, x_tf_90, x_tf_180, x_tf_270, targets) in enumerate(in_loader):
         
         batch_size = x_tf_0.shape[0]
         
@@ -41,17 +43,16 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, attack_in, cur_epoch, op
             x_tf_90.shape[0] == \
             x_tf_180.shape[0] == \
             x_tf_270.shape[0] == \
-            x_tf_trans.shape[0] == \
-            target_trans_x.shape[0] == \
-            target_trans_y.shape[0] == \
             targets.shape[0]
-        
+            #x_tf_trans.shape[0] == \
+            #target_trans_x.shape[0] == \
+            #target_trans_y.shape[0] == \
+            
         batch = np.concatenate((
             x_tf_0,
             x_tf_90,
             x_tf_180,
-            x_tf_270,
-            x_tf_trans
+            x_tf_270
         ), 0)
         batch = torch.FloatTensor(batch).cuda()
         
@@ -64,8 +65,14 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, attack_in, cur_epoch, op
         
         if attack_in is not None:
             # Process PGD attack
-            batch = attack_in.perturb(batch, torch.cat((targets, target_rots), 0).cuda())
+            batch = attack_in.perturb(batch, batch_size, torch.cat((targets, target_rots), 0).cuda())
             batch = batch.cuda()
+        
+        if cur_iter == 0:
+            writer.add_image('Original', batch[0], cur_epoch)
+            writer.add_image('Rot90', batch[batch_size], cur_epoch)
+            writer.add_image('Rot180', batch[batch_size * 2], cur_epoch)
+            writer.add_image('Rot270', batch[batch_size * 3], cur_epoch)
         
          # Adjust Learning rate
         lr = optim.get_lr_at_epoch(op_cfg, cur_epoch + float(cur_iter) / in_data_size)
@@ -75,17 +82,18 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, attack_in, cur_epoch, op
         
         classification_logits = logits[:batch_size]
         rot_logits            = model.rot_head(pen[:4*batch_size])
-        x_trans_logits        = model.x_trans_head(pen[4*batch_size:])
-        y_trans_logits        = model.y_trans_head(pen[4*batch_size:])
+        #x_trans_logits        = model.x_trans_head(pen[4*batch_size:])
+        #y_trans_logits        = model.y_trans_head(pen[4*batch_size:])
         
         
         classification_loss = F.cross_entropy(classification_logits, targets.cuda())
         rot_loss = F.cross_entropy(rot_logits, target_rots.cuda()) * global_cfg['loss']['rot_weight']
-        x_trans_loss = F.cross_entropy(x_trans_logits, target_trans_x.cuda()) * global_cfg['loss']['trans_weight']
-        y_trans_loss = F.cross_entropy(y_trans_logits, target_trans_y.cuda()) * global_cfg['loss']['trans_weight']
+#         x_trans_loss = F.cross_entropy(x_trans_logits, target_trans_x.cuda()) * global_cfg['loss']['trans_weight']
+#         y_trans_loss = F.cross_entropy(y_trans_logits, target_trans_y.cuda()) * global_cfg['loss']['trans_weight']
         
         
-        loss = classification_loss + ((rot_loss + x_trans_loss + y_trans_loss) / 3.0)
+        #loss = classification_loss + ((rot_loss + x_trans_loss + y_trans_loss) / 3.0)
+        loss = classification_loss + rot_loss
         
         # Back propagation
         optimizer.zero_grad()
@@ -93,7 +101,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, attack_in, cur_epoch, op
         optimizer.step()
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:batch_size], targets, (1,))
+        num_topks_correct = metrics.topks_correct(logits[:batch_size], targets.cuda(), (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!!
@@ -118,7 +126,7 @@ def valid_epoch_wo_outlier(model, in_loader, cur_epoch):
     avg_loss = 0
     correct = 0
     in_data_size = len(in_loader.dataset)
-    for cur_iter, (x_tf_0, x_tf_90, x_tf_180, x_tf_270, x_tf_trans, target_trans_x, target_trans_y, targets) in enumerate(in_loader):
+    for cur_iter, (x_tf_0, x_tf_90, x_tf_180, x_tf_270, targets) in enumerate(in_loader):
         
         batch_size = x_tf_0.shape[0]
         
@@ -126,17 +134,18 @@ def valid_epoch_wo_outlier(model, in_loader, cur_epoch):
             x_tf_90.shape[0] == \
             x_tf_180.shape[0] == \
             x_tf_270.shape[0] == \
-            x_tf_trans.shape[0] == \
-            target_trans_x.shape[0] == \
-            target_trans_y.shape[0] == \
             targets.shape[0]
+#             x_tf_trans.shape[0] == \
+#             target_trans_x.shape[0] == \
+#             target_trans_y.shape[0] == \
+            
         
         batch = np.concatenate((
             x_tf_0,
             x_tf_90,
             x_tf_180,
-            x_tf_270,
-            x_tf_trans
+            x_tf_270
+            #x_tf_trans
         ), 0)
         batch = torch.FloatTensor(batch).cuda()
         
@@ -150,20 +159,20 @@ def valid_epoch_wo_outlier(model, in_loader, cur_epoch):
         logits, pen = model(batch)
         
         classification_logits = logits[:batch_size]
-        rot_logits            = net.rot_head(pen[:4*batch_size])
-        x_trans_logits        = net.x_trans_head(pen[4*batch_size:])
-        y_trans_logits        = net.y_trans_head(pen[4*batch_size:])
+        rot_logits            = model.rot_head(pen[:4*batch_size])
+#         x_trans_logits        = net.x_trans_head(pen[4*batch_size:])
+#         y_trans_logits        = net.y_trans_head(pen[4*batch_size:])
         
         classification_loss = F.cross_entropy(classification_logits, targets.cuda())
         rot_loss = F.cross_entropy(rot_logits, target_rots.cuda()) * global_cfg['loss']['rot_weight']
-        x_trans_loss = F.cross_entropy(x_trans_logits, target_trans_x.cuda()) * global_cfg['loss']['trans_weight']
-        y_trans_loss = F.cross_entropy(y_trans_logits, target_trans_y.cuda()) * global_cfg['loss']['trans_weight']
+#         x_trans_loss = F.cross_entropy(x_trans_logits, target_trans_x.cuda()) * global_cfg['loss']['trans_weight']
+#         y_trans_loss = F.cross_entropy(y_trans_logits, target_trans_y.cuda()) * global_cfg['loss']['trans_weight']
         
-        loss = classification_loss + ((rot_loss + x_trans_loss + y_trans_loss) / 3.0)
-    
+        #loss = classification_loss + ((rot_loss + x_trans_loss + y_trans_loss) / 3.0)
+        loss = classification_loss + rot_loss
         
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:batch], targets, (1,))
+        num_topks_correct = metrics.topks_correct(logits[:batch_size], targets.cuda(), (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Add additional metrics!!      
@@ -316,6 +325,8 @@ def main():
     
     # Model & Optimizer
     model = getModel(cfg['model'])
+    model.rot_head = nn.Linear(model.nChannels, 4)
+    model.rot_head.cuda()
     optimizer = optim.getOptimizer(model, cfg['optim'])
     start_epoch = 1
     
@@ -342,8 +353,10 @@ def main():
                                     split="valid")
     attack_in = None
     if 'PGD' in cfg.keys() and cfg['PGD'] is not None:
-        attack_in = LinfPGDAttack(model=model, eps=cfg['PGD']['epsilon'], nb_iter=cfg['PGD']['iters'],
-                              eps_iter=cfg['PGD']['iter_size'], rand_init=True, loss_func='CE')
+        attack_in = RotPGDAttack(model=model, eps=cfg['PGD']['epsilon'],
+                                  nb_iter=cfg['PGD']['iters'],
+                              eps_iter=cfg['PGD']['iter_size'], rand_init=True,
+                                  loss_func='CE')
     
     if cfg['out_dataset'] is not None:
         out_train_loader = getDataLoader(ds_cfg=cfg['out_dataset'],
