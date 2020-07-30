@@ -63,9 +63,9 @@ def getDataLoader(ds_cfg, dl_cfg, split):
     elif ds_cfg['dataset'] == 'tinyimagenet':
         loader = torch.utils.data.DataLoader(TinyImages(root=ds_cfg['data_root'],
                                                         transform=transform),
-                                             batch_size=dl_cfg['batch_size'],
+                                             batch_size=ds_cfg['batch_size'],
                                              shuffle=train,
-                                             num_workers=ds_cfg['num_workers'],
+                                             num_workers=dl_cfg['num_workers'],
                                              pin_memory=dl_cfg['pin_memory'])
         print('Dataset Tinyimagenet ready.')
     else:
