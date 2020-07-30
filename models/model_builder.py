@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from models.wrn import WideResNet, WideResNet224, WideResNet256
+from models.wrn import WideResNet, WideResNet224, WideResNet256, WideResNetPen, WideResNetPen224
 from models.isomax import WideResNetIsoMax224, WideResNetIsoMax32
 from models.godin import WideResNetGODIN32, WideResNetGODIN224 
 import models.md_resnet as resnet
@@ -15,7 +15,9 @@ _MODEL_TYPES = {
     "resnet34": resnet.ResNet34,
     "ovnni": OVNNI,
     "wrngodin32": WideResNetGODIN32,
-    "wrngodin224": WideResNetGODIN224, 
+    "wrngodin224": WideResNetGODIN224,
+    "wrnpen32": WideResNetPen,
+    "wrnpen224": WideResNetPen224,
     
 }
 
