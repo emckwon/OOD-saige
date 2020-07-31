@@ -88,6 +88,30 @@ def getDataLoader(ds_cfg, dl_cfg, split):
                                              num_workers=dl_cfg['num_workers'],
                                              pin_memory=dl_cfg['pin_memory'])
         print('Dataset Tinyimagenet ready.')
+        
+    elif ds_cfg['dataset'] == 'imagenet_resize':
+        dataset = datasets.ImageFolder(os.path.join(ds_cfg['data_root'], "Imagenet_resize"), 
+                                          transform=transform)
+        if 'perturb' in ds_cfg.keys() and ds_cfg['perturb']:
+            dataset = PerturbDataset(dataset, train_mode=train)
+        loader = torch.utils.data.DataLoader(dataset,
+                                         batch_size=ds_cfg['batch_size'],
+                                         shuffle=train,
+                                         num_workers=dl_cfg['num_workers'],
+                                         pin_memory=dl_cfg['pin_memory'])
+        print('Dataset Imagenet resized ready.')
+        
+    elif ds_cfg['dataset'] == 'lsun_resize':
+        dataset = datasets.ImageFolder(os.path.join(ds_cfg['data_root'], "LSUN_resize"), 
+                                          transform=transform)
+        if 'perturb' in ds_cfg.keys() and ds_cfg['perturb']:
+            dataset = PerturbDataset(dataset, train_mode=train)
+        loader = torch.utils.data.DataLoader(dataset,
+                                         batch_size=ds_cfg['batch_size'],
+                                         shuffle=train,
+                                         num_workers=dl_cfg['num_workers'],
+                                         pin_memory=dl_cfg['pin_memory'])
+        print('Dataset Imagenet resized ready.')
     else:
         raise NotImplementedError(
             print("Given dataset {} doesn't exist in implemented dataset.".format(dataset))

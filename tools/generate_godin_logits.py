@@ -30,7 +30,8 @@ def valid_epoch_wo_outlier(model, in_loader, detector_func):
     global global_cfg
     model.eval()
 
-    confidences_list = []
+    h_confidences_list = []
+    f_confidences_list = []
     targets_list = []
     h_logits_list = []
     total = 0
@@ -67,9 +68,11 @@ def valid_epoch_wo_outlier(model, in_loader, detector_func):
         
         global_cfg['detector']['model'] = model
         global_cfg['detector']['data'] = data
-        confidences_dict = detector_func(h_logits, targets, global_cfg['detector'])
+        h_confidences_dict = detector_func(h_logits, targets, global_cfg['detector'])
+        f_confidences_dict = detector_func(f_logits, targets, global_cfg['detector'])
         
-        confidences_list.append(confidences_dict['confidences'].cpu())
+        h_confidences_list.append(h_confidences_dict['confidences'].cpu())
+        f_confidences_list.append(f_confidences_dict['confidences'].cpu())
         targets_list.append(targets.cpu())
         h_logits_list.append(h_logits.cpu())
         
@@ -79,14 +82,11 @@ def valid_epoch_wo_outlier(model, in_loader, detector_func):
         correct += top1_correct
         total += targets.size(0)
         
-        
-    torch.cat(confidences_list, dim=0) # (Bs, 1)
-    torch.cat(h_logits_list, dim=0) # (Bs, num_classes)
-    torch.cat(targets_list, dim=0) # (Bs,)
     
     summary = {
         'classifier_acc': correct / total,
-        'confidences': torch.cat(confidences_list, dim=0), # (Bs, 1)
+        'h_confidences': torch.cat(h_confidences_list, dim=0), # (Bs, 1)
+        'f_confidences': torch.cat(f_confidences_list, dim=0),
         'targets': torch.cat(targets_list, dim=0), # (Bs,)
         'logits' : torch.cat(h_logits_list, dim=0) # (Bs, num_classes)
     }
@@ -145,7 +145,8 @@ Detector     : {}\n".format(cfg['model']['network_kind'], cfg['detector']['detec
     summary_log = "Acc [{}]\n".format(valid_summary['classifier_acc'])
     print(summary_log)
     
-    torch.save(valid_summary['confidences'], os.path.join(exp_dir, 'confidences.pt'))
+    torch.save(valid_summary['f_confidences'], os.path.join(exp_dir, 'f_confidences.pt'))
+    torch.save(valid_summary['h_confidences'], os.path.join(exp_dir, 'h_confidences.pt'))
     torch.save(valid_summary['targets'], os.path.join(exp_dir, 'targets.pt'))
     torch.save(valid_summary['logits'], os.path.join(exp_dir, 'logits.pt'))
     
