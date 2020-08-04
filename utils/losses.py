@@ -92,40 +92,23 @@ def learning_confidence_loss(logits, targets, cfg):
 
 # IsoMax Loss
 # alpha should be configurated.
-def GenericLossSecondPart(features, targets, cfg):
+# def GenericLossSecondPart(features, targets, cfg):
     
-    alpha = cfg['alpha']
-    pnorm = 2
-    weights = cfg['model'].classifier.weights
-    #print(weights.size())
-    #print("alpha {} | pnorm {}".format(alpha, pnorm))
+#     #alpha = cfg['alpha']
+#     pnorm = 2
+#     #weights = cfg['model'].classifier.weights
+#     #print(weights.size())
+#     #print("alpha {} | pnorm {}".format(alpha, pnorm))
 
-    targets_one_hot = torch.eye(weights.size(0))[targets]
-
-    if features.size(0) != targets_one_hot.size(0):
-        targets_one_hot = torch.cat((targets_one_hot, torch.zeros(features.size(0) - targets_one_hot.size(0), weights.size(0))), 0)
     
-    targets_one_hot = targets_one_hot.long().cuda()
-    
-    distances = utils.euclidean_distances(features, weights, pnorm)
-    intra_inter_distances = torch.where(targets_one_hot != 0, -distances, distances)
-    intra_distances = -intra_inter_distances[intra_inter_distances < 0]
-    inter_distances = intra_inter_distances[intra_inter_distances > 0]
-    transformed_distances = distances
-    regularization = 0
+#     targets_one_hot = targets_one_hot.long().cuda()
+#     regularization = 0
+#     probabilities_at_targets = probabilities_for_training[range(len(targets)), targets]
+#     loss = -torch.log(probabilities_at_targets).mean() + regularization
 
-    probabilities_for_training = nn.Softmax(dim=1)(-alpha * transformed_distances)
-    probabilities_at_targets = probabilities_for_training[range(len(targets)), targets]
-    loss = -torch.log(probabilities_at_targets).mean() + regularization
-    probabilities = nn.Softmax(dim=1)(-distances)
-
-    return {
-        'loss': loss,
-        'distances': -transformed_distances,
-        'target_distances': intra_distances.data.cpu().mean(),
-        'non_target_distances': inter_distances.data.cpu().mean(),
-        'entropies': utils.entropies_from_probabilities(probabilities).tolist()
-    }
+#     return {
+#         'loss': loss,
+#     }
 
 
 # Loss for training ova network
@@ -140,10 +123,13 @@ def ova_bce_loss(features, targets, cfg):
 
 
 def share_ovnni_loss(logits, targets, cfg):
-    loss = F.cross_entropy(logits[:len(targets)], targets)
-    K = logits.size(1) // 2
-    for i in range(K):
-        loss += F.binary_cross_entropy(F.sigmoid(logits[:len(targets), K + i]), (targets == i).float())
+    (ava_logits, ova_logits) = logits
+    loss = 0
+    if cfg['model'].cfg['head_training'] is False:
+        loss += F.cross_entropy(ava_logits[:len(targets)], targets)
+    
+    for i in range(ova_logits.size(1)):
+        loss += F.binary_cross_entropy(torch.sigmoid(ova_logits[:len(targets), i]), (targets == i).float())
         
     return {
         'loss': loss 
@@ -173,7 +159,7 @@ _LOSSES = {
                 "oe": outlier_exposure,
                 "oecc": outlier_exposure_confidence_control,
                 "lc" : learning_confidence_loss,
-                "isomax" : GenericLossSecondPart,
+                #"isomax" : GenericLossSecondPart,
                 "ova_bce": ova_bce_loss,
                 "sovnni": share_ovnni_loss,
                 "aloe": adversarial_learning_outlier_exposure,

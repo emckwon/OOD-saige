@@ -7,23 +7,20 @@ import torch.nn.functional as F
 
 class GenericLossFirstPart(nn.Module):
     """Replaces classifier layer"""
-    def __init__(self, in_features, out_features):
+    def __init__(self, in_features, out_features, alpha):
         super(GenericLossFirstPart, self).__init__()
+        self.alpha = alpha
         self.in_features = in_features
         self.out_features = out_features
         self.weights = nn.Parameter(torch.Tensor(out_features, in_features))
-        self.metrics_evaluation_mode = False
         nn.init.constant_(self.weights, 0.0)
         #print("\nPROTOTYPES INITIALIZED:\n", self.weights, "\n")
         print("PROTOTYPES INITIALIZED [MEAN]:\n", self.weights.mean(dim=0).mean(), "\n")
         print("PROTOTYPES INITIALIZED [STD]:\n", self.weights.std(dim=0).mean(), "\n")
 
     def forward(self, features):
-        #if self.training or self.metrics_evaluation_mode:
-            return features
-        #else:
-         #   distances = utils.euclidean_distances(features, self.weights, 2)
-         #   return -distances
+        distances = utils.euclidean_distances(features, self.weights, 2)
+        return -self.alpha * distances
 
 
 class WideResNetIsoMax224(nn.Module):
@@ -33,6 +30,7 @@ class WideResNetIsoMax224(nn.Module):
         num_classes = cfg['num_classes']
         widen_factor = cfg['widen_factor']
         dropRate = cfg['drop_rate']
+        alpha = cfg['alpha'] # When validation alpha should be 1
         nChannels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         assert ((depth - 4) % 6 == 0)
         n = (depth - 4) // 6
@@ -51,7 +49,7 @@ class WideResNetIsoMax224(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         #self.fc = nn.Linear(nChannels[3], num_classes)
         self.nChannels = nChannels[3]
-        self.classifier = GenericLossFirstPart(self.nChannels, num_classes)
+        self.classifier = GenericLossFirstPart(self.nChannels, num_classes, alpha)
         
         ################ 
         for m in self.modules():
@@ -88,6 +86,7 @@ class WideResNetIsoMax32(nn.Module):
         num_classes = cfg['num_classes']
         widen_factor = cfg['widen_factor']
         dropRate = cfg['drop_rate']
+        alpha = cfg['alpha'] # When validation alpha should be 1
         nChannels = [16, 16 * widen_factor, 32 * widen_factor, 64 * widen_factor]
         assert ((depth - 4) % 6 == 0)
         n = (depth - 4) // 6
@@ -106,7 +105,7 @@ class WideResNetIsoMax32(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         #self.fc = nn.Linear(nChannels[3], num_classes)
         self.nChannels = nChannels[3]
-        self.classifier = GenericLossFirstPart(self.nChannels, num_classes)
+        self.classifier = GenericLossFirstPart(self.nChannels, num_classes, alpha)
         
         ################ 
         for m in self.modules():

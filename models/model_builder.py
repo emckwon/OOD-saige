@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
-from models.wrn import WideResNet, WideResNet224, WideResNet256, WideResNetPen, WideResNetPen224
+from models.wrn import WideResNet, WideResNet224, WideResNet256, WideResNetPen, WideResNetPen224, WideResNetFeat224
 from models.isomax import WideResNetIsoMax224, WideResNetIsoMax32
 from models.godin import WideResNetGODIN32, WideResNetGODIN224 
 import models.md_resnet as resnet
-from models.ovnni import OVNNI
+from models.ovnni import OVNNI, SOVNNI, ChannelWiseSOVNNI224
 
 _MODEL_TYPES = {
     "wrn": WideResNet,
@@ -18,6 +18,9 @@ _MODEL_TYPES = {
     "wrngodin224": WideResNetGODIN224,
     "wrnpen32": WideResNetPen,
     "wrnpen224": WideResNetPen224,
+    "wrnfeat224": WideResNetFeat224,
+    "cwsovnni": ChannelWiseSOVNNI224,
+    "sovnni": SOVNNI,
     
 }
 

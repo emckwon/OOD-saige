@@ -108,9 +108,9 @@ Loss     : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss']))
     
     logfile = open(os.path.join(exp_dir, "epsilon.txt"), "w")
     
-    epsilon = -0.005
-    max_epsilon = 0.1
-    step = 0.005
+    epsilon = 0.0
+    max_epsilon = 1.0
+    step = 0.1
     while epsilon <= max_epsilon:
         valid_summary = valid_epoch_wo_outlier(model, in_valid_loader, epsilon)
         summary_log = "Epsilon [{}] => Score [{}]\n".format(epsilon, valid_summary['score'])

@@ -117,6 +117,18 @@ def get_ood_measures(confidences, targets, recall_level=0.95):
 
     return auroc, aupr, fpr
 
+def get_auout(confidences, targets):
+    num_inlier = targets.size(0)
+    confidences = confidences.data.cpu().numpy()
+    neg = np.array(confidences[:num_inlier]).reshape((-1, 1))
+    pos = np.array(confidences[num_inlier:]).reshape((-1, 1))
+    examples = np.squeeze(np.vstack((pos, neg)))
+    
+    labels = np.ones(len(examples), dtype=np.int32)
+    labels[len(pos):] -= 1
+    aupr = sk.average_precision_score(labels, examples)
+
+    return aupr
 
 def classify_acc_w_ood(logits, targets, confidences, step=1000):
     threshold_min = torch.min(confidences)
@@ -149,3 +161,20 @@ def show_wrong_samples_targets(logits, targets, log):
     for idx, i in enumerate(wrong_targets):
         if i:
             log.write("classifier predict [{}] / Ground truth [{}]\n".format(predicts[idx], targets[idx]))
+            
+            
+def kl_div(d1, d2):
+    """
+    Compute KL-Divergence between d1 and d2.
+    """
+    dirty_logs = d1 * torch.log2(d1 / d2)
+    return torch.sum(torch.where(d1 != 0, dirty_logs, torch.zeros_like(d1)), axis=1)
+
+
+def jsd(d1, d2):
+    """
+    Calculate Jensen-Shannon Divergence between d1 and d2
+    Square-root this to get the Jensen-Shannon distance
+    """
+    M = 0.5 * (d1 + d2)
+    return 0.5 * kl_div(d1, M) + 0.5 * kl_div(d2, M)

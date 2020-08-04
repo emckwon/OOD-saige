@@ -6,6 +6,7 @@ import argparse
 import shutil
 import time
 import torch.backends.cudnn as cudnn
+import torch.nn.functional as F
 from tqdm import tqdm
 import sys
 sys.path.append('./')
@@ -44,23 +45,14 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2):
         
         # Foward propagation and Calculate loss
         logits = model(data)
+        (ava_logits, ova_logits) = logits
         
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
-        
-        ### Post processing ###
-        K = logits.size(1) // 2
-        ava_logits = F.softmax(logits[:, :K], dim=1)
-        out = torch.zeros_like(ava_logits)
-        for i in range(K):
-            ova_logit = F.relu(logits[:, K + i])
-            out[:, i] = ova_logit[:] * ava_logits[:, i]
-            
-        logits = out
-        #######################
-        
+        #logits = F.softmax(ava_logits, dim=1) * torch.sigmoid(ova_logits)  
+        logits = F.softmax(ava_logits, dim=1)       
         # Calculate classifier error about in-distribution sample
         num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
@@ -107,6 +99,7 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         #print("in {} out {}".format(in_set[0].size(), out_set[0].size()))
         # Foward propagation and Calculate loss and confidence
         logits = model(data)
+        (ava_logits, ova_logits) = logits
         
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
@@ -115,22 +108,16 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
         loss = loss_dict['loss']
         
-        ### Post processing ###
-        K = logits.size(1) // 2
-        ava_logits = F.softmax(logits[:, :K], dim=1)
-        out = torch.zeros_like(ava_logits)
-        for i in range(K):
-            ova_logit = F.relu(logits[:, K + i])
-            out[:, i] = ova_logit[:] * ava_logits[:, i]
-        logits = out
-        #######################
+        
+        logits = F.softmax(ava_logits, dim=1) * torch.sigmoid(ova_logits)
+        
         
         confidences_dict = detector_func(logits, targets, global_cfg['detector'])
         confidences = confidences_dict['confidences']
         
         ## METRICS ##
         # Calculate classifier error about in-distribution sample
-        num_topks_correct = metrics.topks_correct(logits[:len(targets)], targets, (1,))
+        num_topks_correct = metrics.topks_correct(F.softmax(ava_logits, dim=1)[:len(targets)], targets, (1,))
         [top1_correct] = [x for x in num_topks_correct]
         
         # Calculate OOD metrics (auroc, aupr, fpr)
