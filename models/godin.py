@@ -2,9 +2,12 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchvision
 import sys
 #sys.path.append('./')
 from models.basic_blocks import BasicBlock, NetworkBlock
+from models.pretrained_model import pretrained_model
+
 
 
 class H_I(nn.Module):
@@ -178,5 +181,31 @@ class WideResNetGODIN224(nn.Module):
         g = self.G(out)
         f = h / g
         return f, h
+
+    
+class PTH_GODIN224(nn.Module):
+    def __init__(self, cfg):
+        super(PTH_GODIN224, self).__init__()
+        self.freeze = cfg['freeze']
+        pmodel = pretrained_model[cfg['pretrained']](pretrained=True, progress=True)
+        num_classes = cfg['num_classes']
+        self.nChannels = pmodel.fc.in_features
+        self.network = nn.Sequential(*list(pmodel.children())[:-1])
+        self.H = design_choice[cfg['H']](self.nChannels, num_classes)
+        self.G = design_choice[cfg['G']](self.nChannels, num_classes)
+        
+    def forward(self, x, epoch=None):
+        if epoch is not None and epoch < self.freeze:
+            with torch.no_grad():
+                out = self.network(x)
+        else:
+            out = self.network(x)
+            # [Bs, 512]
+        out = out.view(-1, self.nChannels)
+        h = self.H(out)
+        g = self.G(out)
+        f = h / g
+        return f, h
+    
     
     

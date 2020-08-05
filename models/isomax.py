@@ -1,8 +1,10 @@
 import torch.nn as nn
 import torch
+import torchvision
 import math
 import utils.procedures as utils
 from models.basic_blocks import BasicBlock, NetworkBlock
+from models.pretrained_model import pretrained_model
 import torch.nn.functional as F
 
 class GenericLossFirstPart(nn.Module):
@@ -21,6 +23,28 @@ class GenericLossFirstPart(nn.Module):
     def forward(self, features):
         distances = utils.euclidean_distances(features, self.weights, 2)
         return -self.alpha * distances
+    
+    
+class PTH_IsoMax224(nn.Module):
+    def __init__(self, cfg):
+        super(PTH_IsoMax224, self).__init__()
+        self.freeze = cfg['freeze']
+        pmodel = pretrained_model[cfg['pretrained']](pretrained=True, progress=True)
+        num_classes = cfg['num_classes']
+        alpha = cfg['alpha']
+        self.nChannels = pmodel.fc.in_features
+        self.network = nn.Sequential(*list(pmodel.children())[:-1])
+        self.classifier = GenericLossFirstPart(self.nChannels, num_classes, alpha)
+        
+    def forward(self, x, epoch=None):
+        if epoch is not None and epoch < self.freeze:
+            with torch.no_grad():
+                out = self.network(x)
+        else:
+            out = self.network(x)
+            # [Bs, 512]
+        out = out.view(-1, self.nChannels)
+        return self.classifier(out)
 
 
 class WideResNetIsoMax224(nn.Module):
