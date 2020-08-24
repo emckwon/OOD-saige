@@ -90,6 +90,27 @@ def learning_confidence_loss(logits, targets, cfg):
         'confidence': confidence
     }
 
+def cross_entropy_with_push_cluster(logits, targets, cfg):
+    
+    ce_loss = F.cross_entropy(logits[:len(targets)], targets)
+    weights = cfg['model'].classifier.weights
+    
+    sim_loss = 0
+    num_class = weights.size(0)
+    for i in range(num_class):
+        temp = F.pairwise_distance(weights, weights[i, :].unsqueeze(0), p=2)
+        
+        #sim_loss += F.cosine_similarity(weights, weights[i, :].unsqueeze(0)).sum()
+        
+        for j in range(num_class):
+            if i != j:
+                sim_loss += temp[j]
+    
+    loss = ce_loss - cfg['lamda'] * sim_loss
+    return {
+        'loss': loss,
+    }
+
 # IsoMax Loss
 # alpha should be configurated.
 # def GenericLossSecondPart(features, targets, cfg):
@@ -149,6 +170,68 @@ def adversarial_learning_outlier_exposure(logits, targets, cfg):
         'out_loss': out_loss,
     }
 
+# def contrastive_loss(logits, targets, cfg):
+#     (g_logits, h_logits) = logits
+#     sup_loss = F.cross_entropy(g_logits[:len(targets)], targets)
+    
+#     ## Constrastive loss
+#     con_loss = 0
+#     exp_sim = torch.exp(F.cosine_similarity(h_logits.unsqueeze(2), h_logits.t().unsqueeze(0))) / cfg['temperature']
+    
+#     bs = len(targets)
+#     for i in range(h_logits.size(0)):
+#         if i < bs:
+#             con_loss += -torch.log(exp_sim[i, i + bs] / (exp_sim[i, :].sum() - exp_sim[i, i]))
+#         else:
+#             con_loss += -torch.log(exp_sim[i, i - bs] / (exp_sim[i, :].sum() - exp_sim[i, i]))
+    
+#     loss = con_loss + cfg['lamda'] * sup_loss
+    
+#     return {
+#         'loss': loss,
+#         'sup_loss': sup_loss,
+#         'con_loss': con_loss,
+#     }
+
+def contrastive_loss(logits, targets, cfg):
+    (g_logits, h_logits) = logits
+    bs = len(targets)
+    K = g_logits.size(1)
+    
+    sup_loss = 0
+    if cfg['sup_loss']:
+        log_likelihood = - F.log_softmax(g_logits[:len(targets)], dim=1)
+        one_hot = torch.zeros_like(log_likelihood)
+        one_hot.scatter_(1, targets.unsqueeze(0).t(), 1)
+        one_hot = one_hot * (1-cfg['alpha']) + cfg['alpha'] / K
+        sup_loss = torch.sum(torch.mul(log_likelihood, one_hot), dim=1).mean()
+    
+    ## Constrastive loss
+    con_loss = 0
+    exp_sim = torch.exp(F.cosine_similarity(h_logits.unsqueeze(2), h_logits.t().unsqueeze(0))) / cfg['temperature']
+    
+    for i in range(h_logits.size(0)):
+        if i < bs:
+            con_loss += -torch.log(exp_sim[i, i + bs] / (exp_sim[i, :].sum() - exp_sim[i, i + bs] - exp_sim[i, i]))
+        else:
+            con_loss += -torch.log(exp_sim[i, i - bs] / (exp_sim[i, :].sum() - exp_sim[i, i - bs] - exp_sim[i, i]))
+    
+    loss = con_loss + cfg['lamda'] * sup_loss
+    
+    return {
+        'loss': loss,
+        'sup_loss': sup_loss,
+        'con_loss': con_loss,
+    }
+
+def ovadm_loss(logits, targets, cfg):
+    loss = 0
+    for i in range(logits.size(1)):
+        loss += F.binary_cross_entropy(2 * torch.sigmoid(logits[:len(targets), i]), (targets == i).float())
+    return {
+        'loss': loss,
+    }   
+    
 
 
 # Add new loss here!!!
@@ -163,6 +246,9 @@ _LOSSES = {
                 "ova_bce": ova_bce_loss,
                 "sovnni": share_ovnni_loss,
                 "aloe": adversarial_learning_outlier_exposure,
+                "isomax_push": cross_entropy_with_push_cluster,
+                "contrastive": contrastive_loss,
+                "ovadm": ovadm_loss,
         }
 
 def getLoss(cfg):

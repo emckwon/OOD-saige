@@ -134,6 +134,7 @@ def sinh(x):
 
 
 def euclidean_distances(features, prototypes, pnorm):
+    #print("feature: {} | prototypes {}".format(features.unsqueeze(2).size(), prototypes.t().unsqueeze(0).size()))
     return F.pairwise_distance(features.unsqueeze(2), prototypes.t().unsqueeze(0), p=pnorm)
 
 

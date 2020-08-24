@@ -145,7 +145,7 @@ class WideResNet224(nn.Module):
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 14)
         out = out.view(-1, self.nChannels)
-        return self.fc(out)
+        return (self.fc(out), out)
     
     
 class WideResNetPen224(nn.Module):

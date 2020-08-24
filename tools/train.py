@@ -47,7 +47,7 @@ def train_epoch_wo_outlier(model, optimizer, in_loader, loss_func, cur_epoch, op
         optim.set_lr(optimizer, lr)
         
         # Foward propagation and Calculate loss
-        logits = model(data, cur_epoch)
+        logits, _ = model(data, cur_epoch)
         
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
@@ -93,7 +93,7 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch):
         data, targets = data.cuda(), targets.cuda()
         
         # Foward propagation and Calculate loss
-        logits = model(data, cur_epoch)
+        logits, _ = model(data, cur_epoch)
 
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data

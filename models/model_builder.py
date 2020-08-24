@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 from models.wrn import WideResNet, WideResNet224, WideResNet256, WideResNetPen, WideResNetPen224, WideResNetFeat224
-from models.isomax import WideResNetIsoMax224, WideResNetIsoMax32, PTH_IsoMax224
+from models.isomax import WideResNetIsoMax224, WideResNetIsoMax32, PTH_IsoMax224, PTH_IsoMax224_Custom
 from models.godin import WideResNetGODIN32, WideResNetGODIN224, PTH_GODIN224
 import models.md_resnet as resnet
-from models.ovnni import OVNNI, SOVNNI, ChannelWiseSOVNNI224
+from models.ovnni import OVNNI, SOVNNI, ChannelWiseSOVNNI224, PTH_OVNNI
 from models.pretrained_model import pretrained_model
+from models.contrastive import PTH_Contrastive224
+import models.md_resnet224 as md_resnet
 
 
 class PTH_model(nn.Module):
@@ -26,8 +28,7 @@ class PTH_model(nn.Module):
             out = self.network(x)
             # [Bs, 512]
         out = out.view(-1, self.nChannels)
-        out = self.fc(out)
-        return out
+        return self.fc(out), out
 
 _MODEL_TYPES = {
     "wrn": WideResNet,
@@ -47,6 +48,13 @@ _MODEL_TYPES = {
     "pgodin": PTH_GODIN224,
     "pmodel": PTH_model,
     "pisomax": PTH_IsoMax224,
+    "pisomax_cus": PTH_IsoMax224_Custom,
+    "pcontrastive": PTH_Contrastive224,
+    "povnni": PTH_OVNNI,
+    "resnet34_224": md_resnet.resnet34,
+    "pre_resnet34_224": md_resnet.resnet34(pretrained=True),
+    "resnet18_224": md_resnet.resnet18,
+    "pre_resnet18_224": md_resnet.resnet18(pretrained=True)
     
 }
 

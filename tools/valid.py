@@ -25,6 +25,8 @@ global_cfg = dict()
 
 def summary_write(summary, writer):
     for key in summary.keys():
+        if key in ['logits', 'targets']:
+            continue
         writer.add_scalar(key, summary[key], summary['epoch'])
         
     
@@ -34,6 +36,8 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2, att
     avg_loss = 0
     correct = 0
     total = 0
+    features_list = []
+    targets_list = []
     
     in_data_size = len(in_loader.dataset)
     for cur_iter, in_set in enumerate(in_loader):        
@@ -48,7 +52,9 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2, att
             data, targets = data.cuda(), targets.cuda()
             # Foward propagation and Calculate loss
         
-        logits = model(data)
+        (logits, features) = model(data)
+        features_list.append(features.data.cpu())
+        targets_list.append(targets.data.cpu())
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         loss_dict = loss_func(logits, targets, global_cfg['loss'])
@@ -71,6 +77,8 @@ def valid_epoch_wo_outlier(model, in_loader, loss_func, cur_epoch, logfile2, att
         'avg_loss': avg_loss / in_data_size,
         'classifier_acc': correct / in_data_size,
         'epoch': cur_epoch,
+        'logits' : torch.cat(features_list, dim=0),
+        'targets': torch.cat(targets_list, dim=0), # (Bs,)
     }
     
     return summary
@@ -92,6 +100,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
     in_data_size = len(in_loader.dataset)
     inliers_conf = []
     outliers_conf = []
+    features_list = []
+    targets_list = []
     for cur_iter, (in_set, out_set) in enumerate(zip(in_loader, out_loader)):        
         in_data = in_set[0]
         out_data = out_set[0]
@@ -110,8 +120,13 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         data = data.cuda()
         #print("in {} out {}".format(in_set[0].size(), out_set[0].size()))
         # Foward propagation and Calculate loss and confidence
-        logits = model(data)
-        
+        (logits, features) = model(data)
+        features_list.append(features.data.cpu())
+        ood_num = features.size(0) - len(targets)
+        ood_targets = -torch.ones(ood_num)
+        save_targets = torch.cat((targets.data.cpu(), ood_targets.type(torch.LongTensor)), 0)
+        targets_list.append(save_targets)
+        print(targets)
         global_cfg['loss']['model'] = model
         global_cfg['loss']['data'] = data
         global_cfg['detector']['model'] = model
@@ -162,6 +177,8 @@ def valid_epoch_w_outlier(model, in_loader, out_loader, loss_func, detector_func
         'outliers': torch.cat(outliers_conf).numpy(),
         'acc': avg_acc / max_iter,
         'epoch': cur_epoch,
+        'logits' : torch.cat(features_list, dim=0),
+        'targets': torch.cat(targets_list, dim=0), # (Bs,)
     }
     
     return summary
@@ -254,13 +271,16 @@ Detector : {}\n".format(cfg['model']['network_kind'], cfg['loss']['loss'], cfg['
             plt.ylabel('Density')
             fig.legend()
             fig.savefig(os.path.join(exp_dir, "confidences.png"))
+            torch.save(valid_summary['logits'], os.path.join(exp_dir, 'logits.pt'))
+            torch.save(valid_summary['targets'], os.path.join(exp_dir, 'targets.pt'))
             
             
         else:
             valid_summary = valid_epoch_wo_outlier(model, in_valid_loader,
                                                    loss_func, cur_epoch, logfile2, attack_in)
             summary_log = "=============Epoch [{}]/[{}]=============\nloss: {} | acc: {}\n".format(cur_epoch, max_epoch, valid_summary['avg_loss'], valid_summary['classifier_acc'])
-            
+            torch.save(valid_summary['logits'], os.path.join(exp_dir, 'logits.pt'))
+            torch.save(valid_summary['targets'], os.path.join(exp_dir, 'targets.pt'))
         print(summary_log)
         logfile.write(summary_log)
             

@@ -22,6 +22,24 @@ class GenericLossFirstPart(nn.Module):
 
     def forward(self, features):
         distances = utils.euclidean_distances(features, self.weights, 2)
+        return (-self.alpha * distances, features)
+    
+
+class GenericLossFirstPart_Sim(nn.Module):
+    """Replaces classifier layer"""
+    def __init__(self, in_features, out_features, alpha):
+        super(GenericLossFirstPart_Sim, self).__init__()
+        self.alpha = alpha
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weights = nn.Parameter(torch.Tensor(out_features, in_features))
+        nn.init.normal_(self.weights)
+        print("\nPROTOTYPES INITIALIZED:\n", self.weights, "\n")
+        print("PROTOTYPES INITIALIZED [MEAN]:\n", self.weights.mean(dim=0).mean(), "\n")
+        print("PROTOTYPES INITIALIZED [STD]:\n", self.weights.std(dim=0).mean(), "\n")
+
+    def forward(self, features):
+        distances = F.cosine_similarity(features.unsqueeze(2), self.weights.t().unsqueeze(0))
         return -self.alpha * distances
     
     
@@ -29,7 +47,8 @@ class PTH_IsoMax224(nn.Module):
     def __init__(self, cfg):
         super(PTH_IsoMax224, self).__init__()
         self.freeze = cfg['freeze']
-        pmodel = pretrained_model[cfg['pretrained']](pretrained=True, progress=True)
+        pmodel = pretrained_model[cfg['pretrained']](pretrained=True if 'pretrained_weights' not in cfg.keys() else cfg['pretrained_weights'],
+                                                     progress=True)
         num_classes = cfg['num_classes']
         alpha = cfg['alpha']
         self.nChannels = pmodel.fc.in_features
@@ -45,7 +64,37 @@ class PTH_IsoMax224(nn.Module):
             # [Bs, 512]
         out = out.view(-1, self.nChannels)
         return self.classifier(out)
+    
+    
+class PTH_IsoMax224_Custom(nn.Module):
+    def __init__(self, cfg):
+        super(PTH_IsoMax224_Custom, self).__init__()
+        self.freeze = cfg['freeze']
+        pmodel = pretrained_model[cfg['pretrained']](pretrained=True if 'pretrained_weights' not in cfg.keys() else cfg['pretrained_weights'],
+                                                     progress=True)
+        num_classes = cfg['num_classes']
+        alpha = cfg['alpha']
+        self.nChannels = pmodel.fc.in_features
+        self.network = nn.Sequential(*list(pmodel.children())[:-1])
+        self.classifier = GenericLossFirstPart(self.nChannels*2, num_classes, alpha)
+        self.linear1 = nn.Linear(self.nChannels, self.nChannels * 2)
+        self.bn1 = nn.BatchNorm1d(self.nChannels * 2)
+        self.linear2 = nn.Linear(self.nChannels * 2, self.nChannels * 2)
+        self.bn2 = nn.BatchNorm1d(self.nChannels * 2)
+        
+    def forward(self, x, epoch=None):
+        if epoch is not None and epoch < self.freeze:
+            with torch.no_grad():
+                out = self.network(x)
+        else:
+            out = self.network(x)
+            # [Bs, 512]
+        out = out.view(-1, self.nChannels)
+        out = F.relu(self.bn1(self.linear1(out)))
+        out = F.relu(self.bn2(self.linear2(out)))
+        return self.classifier(out)
 
+    
 
 class WideResNetIsoMax224(nn.Module):
     def __init__(self, cfg):

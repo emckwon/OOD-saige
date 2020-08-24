@@ -4,6 +4,28 @@ import torch.nn as nn
 import torch.nn.functional as F
 from models.wrn import WideResNet224, WideResNetFeat224
 from models.basic_blocks import BasicBlock, NetworkBlock
+from models.pretrained_model import pretrained_model
+
+class PTH_model(nn.Module):
+    def __init__(self, cfg):
+        super(PTH_model, self).__init__()
+        self.freeze = cfg['freeze']
+        pmodel = pretrained_model[cfg['pretrained']](pretrained=True, progress=True)
+        num_classes = cfg['num_classes']
+        self.nChannels = pmodel.fc.in_features
+        self.network = nn.Sequential(*list(pmodel.children())[:-1])
+        self.fc = nn.Linear(self.nChannels, num_classes)
+        
+    def forward(self, x, epoch=None):
+        if epoch is not None and epoch < self.freeze:
+            with torch.no_grad():
+                out = self.network(x)
+        else:
+            out = self.network(x)
+            # [Bs, 512]
+        out = out.view(-1, self.nChannels)
+        out = self.fc(out)
+        return out
 
 class OVNNI(nn.Module):
     def __init__(self, cfg):
@@ -13,6 +35,26 @@ class OVNNI(nn.Module):
         num_classes = self.ava_cfg['num_classes']
         self.ava_network = WideResNet224(self.ava_cfg)
         self.ova_networks = nn.ModuleList([WideResNet224(self.ova_cfg) for i in range(num_classes)])
+        
+        
+    def forward(self, x):
+        ava_logits = F.softmax(self.ava_network(x), dim=1)
+        out = torch.zeros_like(ava_logits).cuda()
+        for idx, ova_network in enumerate(self.ova_networks):
+            ova_logit = F.relu(ova_network(x))
+
+            out[:, idx] = ova_logit[:,0] * ava_logits[:, idx]
+            
+        return out
+    
+class PTH_OVNNI(nn.Module):
+    def __init__(self, cfg):
+        super(PTH_OVNNI, self).__init__()
+        self.ava_cfg = cfg['AVA']
+        self.ova_cfg = cfg['OVA']
+        num_classes = self.ava_cfg['num_classes']
+        self.ava_network = PTH_model(self.ava_cfg)
+        self.ova_networks = nn.ModuleList([PTH_model(self.ova_cfg) for i in range(num_classes)])
         
         
     def forward(self, x):

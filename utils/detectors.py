@@ -121,6 +121,23 @@ def LC_detector(logits, targets, cfg):
     return {
         'confidences': pred
     }
+
+def MD_contrastive_detector(logits, targets, cfg):
+    means = cfg['means'].cuda()
+    cov_mat_inv = cfg['cov_mat_inv'].cuda()
+    
+    diff = logits.unsqueeze(1) - means.unsqueeze(0)
+    diag = -torch.norm(diff, dim=2)
+    #diff: [Bs, num_classes, feature_dim]
+    #md = -torch.matmul(torch.matmul(diff, cov_mat_inv), diff.permute(0,2,1))
+    #diag = torch.diagonal(md, offset=0, dim1=2)
+    confidences = torch.max(diag, dim=1, keepdim=True).values
+
+    return {
+        'confidences': confidences,
+        'inlier_mean': confidences[:len(targets)].data.cpu().mean(),
+        'outlier_mean': confidences[len(targets):].data.cpu().mean()
+    }
     
 
 
@@ -134,6 +151,7 @@ _DETECTORS = {
                 "odin": ODIN,
                 "lc": LC_detector,
                 #"sovnni": share_ovnni_detector,
+                "md_contrastive": MD_contrastive_detector,
                }
 
 def getDetector(cfg):
